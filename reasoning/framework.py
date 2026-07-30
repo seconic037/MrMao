@@ -34,3 +34,16 @@ class MaoReasoningEngine:
             question=question, knowledge_base=self._knowledge_base,
             rag_results=rag_results or [], chat_history=chat_history or []
         )
+
+    def build_think_prompt(self, question, rag_results=None):
+        return self._jinja_env.get_template("think.jinja2").render(
+            question=question,
+            knowledge_base=self._knowledge_base,
+            rag_results=rag_results or []
+        )
+
+    def build_speak_prompt(self, question, thinking_result):
+        return self._jinja_env.get_template("speak.jinja2").render(
+            question=question,
+            thinking_result=thinking_result
+        )

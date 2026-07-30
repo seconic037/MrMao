@@ -225,3 +225,34 @@ answer = llm.chat(speak_prompt, max_tokens=400)
 - 双模式切换（聊天/工作台）（P2，后续）
 - book-to-skill 全量知识萃取（P1，后续）
 - RAG 风格匹配检索（P3，后续）
+
+---
+
+## 十、补充：记忆·日志·疲劳系统（2026-07-31 追加）
+
+### 10.1 对话日志
+- 存储：`data/logs/session_{datetime}.jsonl`，每行 `{role, content, time, tokens_in, tokens_out}`
+- Web 入口：顶部「📋 日志」→ 侧栏历史列表 → 点击查看全文
+
+### 10.2 Token 与成本监控
+- 每次 `/api/chat` 提取 usage.total_tokens，前端实时显示
+- 格式：`📊 本轮: 3.4K | 累计: 48.2K | ≈¥0.14`
+
+### 10.3 主席记忆
+- 每轮生成一句摘要（≤15字），最近 5 轮注入 think.jinja2 的 `{{ memories }}` 块
+- 不注入原文，只注入摘要
+
+### 10.4 疲劳度系统
+- 阈值：35 轮触发
+- 三档：🟢 0-20 / 🟡 21-34 / 🔴 35+
+- 动作对应：[揉了揉太阳穴] / [打了个哈欠] [眼皮有点沉]
+- 🍵续茶 / 🚬递烟 → 执行压缩（摘要前 30 轮），疲劳度重置
+
+### 10.5 新增文件
+| 文件 | 动作 |
+|------|------|
+| `web/app.py` | 改：日志写入、token统计、/api/logs、compact |
+| `reasoning/prompts/think.jinja2` | 改：加 `{{ memories }}` 块 |
+| `web/static/app.js` | 改：疲劳度、续茶/递烟、日志侧栏 |
+| `web/static/style.css` | 改：疲劳度条、按钮 |
+| `data/logs/` | 新建
