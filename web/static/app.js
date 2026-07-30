@@ -95,19 +95,32 @@ async function doCompact() {
     } catch (e) { console.error(e); }
 }
 
-// ── 开场白 ────────────────────────────────────
-setTimeout(async () => {
-    try {
-        const r = await fetch('/api/greeting');
-        const d = await r.json();
-        if (d.greeting) {
-            const w = document.getElementById('welcome');
-            if (w) w.remove();
-            addMsg('assistant', d.greeting);
-            resetIdleTimer();
-        }
-    } catch (e) { }
-}, 1000);
+// ── 让主席休息 ────────────────────────────────
+function restChairman() {
+    const chat = document.getElementById('chat');
+    chat.innerHTML = `
+        <div class="welcome" id="welcome">
+            <h2>📚 和老先生聊聊</h2>
+            <p>基于毛泽东选集四卷 · 像朋友聊天一样交流</p>
+            <div class="suggestions">
+                <button onclick="ask('怎么才能看清一件事的本质？')">怎么看清一件事的本质？</button>
+                <button onclick="ask('遇到难题拿不定主意怎么办？')">遇到难题拿不定主意怎么办？</button>
+                <button onclick="ask('怎么判断谁是朋友谁是敌人？')">怎么判断谁是朋友谁是敌人？</button>
+            </div>
+            <div class="inline-input">
+                <textarea id="msg" placeholder="随便问点什么..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
+                <button id="sendBtn" onclick="send()">发送</button>
+            </div>
+        </div>`;
+    if (idleEl) { idleEl.remove(); idleEl = null; }
+    if (idleTimer) clearTimeout(idleTimer);
+    document.getElementById('stats').innerHTML = '📊 主席去休息了';
+    document.getElementById('fatigueBar').className = 'fatigue-bar green';
+    document.getElementById('fatigueBar').textContent = '🟢 精神饱满';
+    document.getElementById('compactBtns').style.display = 'none';
+    setStatus('休息中');
+    fetch('/api/compact', { method: 'POST' }).catch(() => {});
+}
 
 // ── 冷场计时器 ─────────────────────────────────
 function resetIdleTimer() {

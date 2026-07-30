@@ -36,6 +36,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans
 .header-right{display:flex;align-items:center;gap:12px}
 .log-btn{background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px}
 .log-btn:hover{background:rgba(255,255,255,.2)}
+.rest-btn{background:none;border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:16px}
+.rest-btn:hover{background:rgba(255,255,255,.2)}
 .stats-bar{text-align:center;padding:6px;background:rgba(139,0,0,.05);font-size:12px;color:var(--text-light);flex-shrink:0}
 .fatigue-bar{text-align:center;padding:4px;font-size:13px;flex-shrink:0;transition:all .5s}
 .fatigue-bar.green{background:#e8f5e9;color:#2e7d32}
