@@ -84,6 +84,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans
 .home-links span{color:var(--primary);cursor:pointer;font-size:14px;font-weight:500}
 .chat-links{text-align:center;padding:4px;flex-shrink:0}
 .chat-links span{color:var(--primary);cursor:pointer;font-size:12px}
+.hot-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center}
+.hot-modal-content{background:#fff;border-radius:16px;padding:24px;margin:20px;max-width:400px;width:100%}
+.hot-modal-title{font-size:17px;font-weight:600;color:var(--primary);margin-bottom:12px}
+.hot-modal-brief{font-size:14px;color:var(--text);line-height:1.7;margin-bottom:20px}
+.hot-modal-btns{display:flex;flex-direction:column;gap:8px}
+.hot-modal-btns button{padding:12px;border-radius:12px;border:none;font-size:15px;cursor:pointer}
+.hot-modal-btns button:first-child{background:var(--primary);color:#fff}
+.hot-modal-btns button:not(:first-child){background:var(--bg);color:var(--text);border:1px solid var(--border)}
 .log-loading{color:var(--text-light);text-align:center;padding:30px}
 
 /* ── 底部标签栏 ───────────── */

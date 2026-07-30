@@ -338,6 +338,17 @@ async def summarize_log(filename: str = ""):
     )
     return {"summary": resp.choices[0].message.content.strip(), "filename": filename}
 
+@app.post("/api/hotspot/preview")
+async def hotspot_preview(title: str = ""):
+    """生成热点事件的简要概述。"""
+    if not llm or not title: return {"brief": title}
+    resp = llm.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "user", "content": f"请用两句话简要介绍这个热点新闻事件：{title}"}],
+        max_tokens=150, temperature=0.5
+    )
+    return {"title": title, "brief": resp.choices[0].message.content.strip()}
+
 @app.get("/api/catalog")
 async def catalog():
     """分级著作目录。"""

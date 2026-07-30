@@ -72,6 +72,19 @@
             <span class="tab-icon">📚</span><span class="tab-label">阅读</span>
         </div>
     </nav>
+    <!-- 热点弹窗 -->
+    <div class="hot-modal" id="hotModal" style="display:none">
+        <div class="hot-modal-content">
+            <div class="hot-modal-title" id="hotModalTitle"></div>
+            <div class="hot-modal-brief" id="hotModalBrief">加载中...</div>
+            <div class="hot-modal-btns">
+                <button onclick="chatAboutHot()">💬 和主席聊聊这个</button>
+                <button onclick="closeHotModal()">👀 看看别的</button>
+                <button onclick="closeHotModal()">🏠 回到首页</button>
+            </div>
+        </div>
+    </div>
+    <div class="log-panel" id="logPanel" style="display:none"></div>
 </div>
 <script src="/static/app.js"></script>
 </body>

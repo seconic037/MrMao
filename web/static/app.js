@@ -35,13 +35,17 @@ async function enterChat(){
 async function send(){
     const m=document.getElementById('msg').value.trim();
     if(!m||loading)return;
-    addMsg('user',m);document.getElementById('msg').value='';loading=true;document.getElementById('sendBtn').disabled=true;resetIdleTimer();hasNewMessages=true;
+    addMsg('user',m);
+    // 热点上下文：注入到 API 请求但不在聊天显示
+    let apiMsg=m;
+    if(window._hotContext){apiMsg=m+'\n\n【背景信息】'+window._hotContext;window._hotContext=null;}
+    document.getElementById('msg').value='';loading=true;document.getElementById('sendBtn').disabled=true;resetIdleTimer();hasNewMessages=true;
     // 等待动画 + 动态省略号
     const loadingEl=addMsg('assistant','[主席抽了口烟，正在思考]');
     loadingEl.classList.add('loading');
     let dots=0;const dotTimer=setInterval(()=>{dots=(dots+1)%4;loadingEl.innerHTML='[主席抽了口烟，正在思考'+'.'.repeat(dots)+']'},500);
     try{
-        const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m})});
+        const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:apiMsg})});
         if(!r.ok){const e=await r.json();throw new Error(e.detail||'请求失败')}
         const d=await r.json();
         clearInterval(dotTimer);loadingEl.remove();
@@ -171,7 +175,26 @@ async function readArticle(source,title){
 
 // ── 首页 ────────────────────────────────────
 async function loadTopics(){try{const r=await fetch('/api/catalog');const d=await r.json();const el=document.getElementById('topicList');el.innerHTML=d.topics.map(t=>`<span class="topic-item" data-q="${t.replace(/"/g,'&quot;')}">${t}</span>`).join('');el.querySelectorAll('.topic-item').forEach(s=>s.onclick=()=>ask(s.dataset.q))}catch(e){}}
-async function loadHotspots(){try{const r=await fetch('/api/hotspots');const d=await r.json();const el=document.getElementById('hotspotList');el.innerHTML=d.hotspots.map(h=>`<div class="hotspot-item" data-q="${h.title.replace(/"/g,'&quot;')}，您怎么看？" onclick="ask(this.dataset.q)"><span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span></div>`).join('');}catch(e){}}
+async function loadHotspots(){try{const r=await fetch('/api/hotspots');const d=await r.json();const el=document.getElementById('hotspotList');el.innerHTML=d.hotspots.map(h=>`<div class="hotspot-item" onclick="showHotModal('${h.title.replace(/'/g,"\\'")}')"><span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span></div>`).join('');}catch(e){}}
+
+// ── 热点弹窗 ────────────────────────────────
+let currentHotTitle='',currentHotBrief='';
+async function showHotModal(title){
+    currentHotTitle=title;currentHotBrief='';
+    document.getElementById('hotModalTitle').textContent=title;
+    document.getElementById('hotModalBrief').textContent='加载中...';
+    document.getElementById('hotModal').style.display='flex';
+    try{const r=await fetch(`/api/hotspot/preview?title=${encodeURIComponent(title)}`,{method:'POST'});const d=await r.json();currentHotBrief=d.brief||title;document.getElementById('hotModalBrief').textContent=currentHotBrief}catch(e){document.getElementById('hotModalBrief').textContent=title}
+}
+function closeHotModal(){document.getElementById('hotModal').style.display='none'}
+function chatAboutHot(){
+    document.getElementById('hotModal').style.display='none';
+    enterChat();
+    document.getElementById('msg').value=currentHotTitle+'，您怎么看？';
+    // 把缩略内容作为隐藏上下文注入
+    window._hotContext=currentHotBrief;
+    setTimeout(()=>send(),200);
+}
 
 // ── 启动 ────────────────────────────────────
 fetch('/api/status').then(r=>r.json()).then(s=>{if(!s.rag)document.getElementById('stats')&&(document.getElementById('stats').innerHTML='⚠ RAG未就绪');if(!s.llm)document.getElementById('stats')&&(document.getElementById('stats').innerHTML='⚠ LLM未配置')});
