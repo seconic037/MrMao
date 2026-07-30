@@ -75,7 +75,6 @@ async function showIdleAction(){
 function refreshIdleAction(){if(idleEl)idleEl.remove();showIdleAction();}
 
 // ── 记录 ──────────────────────────────────
-let logData=null;
 async function openLogs(){
     const panel=document.getElementById('logPanel');panel.style.display='block';
     panel.innerHTML='<div class="log-loading">加载中...</div>';
