@@ -136,6 +136,44 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 💡 可发布内容：这条「用AI做热点选题」的体验适合发小红书
 ```
 
+### /diary list — 浏览历史日记列表
+
+行为：
+1. 使用 `glob` 查找 `diary/*.md`（排除 weekly/ 和 drafts/）
+2. 按日期倒序排列
+3. 显示分页列表（每页 10 条）
+4. 支持参数：`/diary list --page=2` 翻页
+
+输出格式：
+```
+📚 日记历史（共 23 条）
+━━━━━━━━━━━━━━━━━━
+2026-07-31  [标题]
+2026-07-30  [标题]
+...
+第 1/3 页  → 使用 /diary list --page=2 翻页
+```
+
+### /diary weekly — 生成本周周报
+
+行为：
+1. 计算当前周数（ISO 周数）
+2. 读取本周所有日记文件（周一至周日）
+3. 汇总本周所有任务、工具、产出
+4. 统计：任务数量、工具使用频率、产出类型分布
+5. 生成周报写入 `diary/weekly/YYYY-Www.md`
+
+输出格式：
+```
+📊 2026年第31周周报
+━━━━━━━━━━━━━━━━━━
+📋 本周共完成 12 个任务
+🛠 常用工具：domestic-reach(5次)、hotnews-mcp(4次)、web_fetch(3次)
+
+🏆 本周亮点：[最有意思的任务]
+📱 适合发布：[推荐本周值得发的内容]
+```
+
 ## 参考
 - 设计规格：`docs/superpowers/specs/2026-07-31-ai-diary-media-design.md`
 - 实现计划：`docs/superpowers/plans/2026-07-31-ai-diary-media.md`
