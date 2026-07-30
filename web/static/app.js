@@ -4,11 +4,37 @@ let idleTimer = null;
 let idleEl = null;
 let currentFatigue = 'green';
 
+// ── 进入聊天 ──────────────────────────────────
+async function enterChat() {
+    document.getElementById('cover').style.display = 'none';
+    document.getElementById('chat').style.display = 'flex';
+    resetIdleTimer();
+    try {
+        const r = await fetch('/api/greeting');
+        const d = await r.json();
+        if (d.greeting) addMsg('assistant', d.greeting);
+    } catch(e) {}
+}
+
+// ── 让主席休息 ────────────────────────────────
+function restChairman() {
+    document.getElementById('cover').style.display = 'flex';
+    document.getElementById('chat').style.display = 'none';
+    document.getElementById('chat').innerHTML = '';
+    if (idleEl) { idleEl.remove(); idleEl = null; }
+    if (idleTimer) clearTimeout(idleTimer);
+    document.getElementById('stats').innerHTML = '📊 主席去休息了';
+    document.getElementById('fatigueBar').className = 'fatigue-bar green';
+    document.getElementById('fatigueBar').textContent = '🟢 精神饱满';
+    document.getElementById('compactBtns').style.display = 'none';
+    setStatus('休息中');
+    fetch('/api/compact', { method: 'POST' }).catch(() => {});
+}
+
 // ── 消息 ──────────────────────────────────────
 async function send() {
     const m = document.getElementById('msg').value.trim();
     if (!m || loading) return;
-    const w = document.getElementById('welcome'); if (w) w.remove();
     addMsg('user', m);
     document.getElementById('msg').value = '';
     setStatus('思考中...');
@@ -42,7 +68,11 @@ function addMsg(role, html) {
     d.scrollIntoView();
 }
 
-function ask(t) { document.getElementById('msg').value = t; send(); }
+function ask(t) {
+    enterChat();
+    document.getElementById('msg').value = t;
+    setTimeout(() => send(), 100);
+}
 
 // ── 统计栏 ────────────────────────────────────
 function updateStats(d) {

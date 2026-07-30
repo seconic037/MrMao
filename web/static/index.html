@@ -22,19 +22,23 @@
         <button onclick="doCompact()">🍵 给主席续一杯茶</button>
         <button onclick="doCompact()">🚬 给主席递一根烟</button>
     </div>
-    <main class="chat" id="chat">
-        <div class="welcome" id="welcome">
-            <h2>📚 和老先生聊聊</h2>
-            <p>基于毛泽东选集四卷 · 像朋友聊天一样交流</p>
-            <div class="suggestions">
-                <button onclick="ask('怎么才能看清一件事的本质？')">怎么看清一件事的本质？</button>
-                <button onclick="ask('遇到难题拿不定主意怎么办？')">遇到难题拿不定主意怎么办？</button>
-                <button onclick="ask('怎么判断谁是朋友谁是敌人？')">怎么判断谁是朋友谁是敌人？</button>
-            </div>
-            <div class="inline-input">
-                <textarea id="msg" placeholder="随便问点什么..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
-                <button id="sendBtn" onclick="send()">发送</button>
-            </div>
+
+    <!-- 门面层 -->
+    <div class="cover" id="cover">
+        <div class="cover-inner">
+            <div class="cover-portrait">📖</div>
+            <h2>和老先生聊聊</h2>
+            <p>毛泽东选集 · 文集 · 诗词 · 建国后文稿</p>
+            <p>406 篇著作已就绪</p>
+            <button class="cover-enter" onclick="enterChat()">和老人家聊聊</button>
+        </div>
+    </div>
+
+    <!-- 聊天区（初始隐藏） -->
+    <main class="chat" id="chat" style="display:none">
+        <div class="inline-input" id="bottomInput">
+            <textarea id="msg" placeholder="随便问点什么..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
+            <button id="sendBtn" onclick="send()">发送</button>
         </div>
     </main>
     <div class="log-panel" id="logPanel" style="display:none"></div>
