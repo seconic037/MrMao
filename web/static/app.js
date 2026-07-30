@@ -121,7 +121,7 @@ async function doCompact() {
         currentFatigue = 'green';
         updateFatigueUI();
         updateCompactButtons();
-        addMsg('assistant', '[端起茶杯喝了一口，精神了不少] 好了，接着聊。');
+        addMsg('assistant', '[老人家端起茶杯喝了一口，精神了不少] 好了，接着聊。');
     } catch (e) { console.error(e); }
 }
 
