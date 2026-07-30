@@ -3,7 +3,7 @@
 策略：
 - 以「篇」为天然边界，不跨篇
 - 篇内按自然段落(\n\n)分割
-- 单段过长(>chunk_size*2)时按句子边界切分
+- 单段过长(>chunk_size)时按句子边界切分
 - 相邻块重叠 overlap 字符
 """
 import re
@@ -57,7 +57,6 @@ def _chunk_paragraphs(
     """将段落序列组装为 chunk_size 附近的文本块。"""
     chunks = []
     buffer = ""
-    chunk_idx = 0
     
     for para in paragraphs:
         if len(buffer) + len(para) <= chunk_size:
@@ -71,7 +70,6 @@ def _chunk_paragraphs(
                     "title": title,
                     "date": date,
                 })
-                chunk_idx += 1
                 # 下一块：前一块末尾 overlap 字符
                 overlap_text = buffer[-overlap:] if len(buffer) > overlap else buffer
                 buffer = overlap_text + para + "\n\n"
@@ -79,6 +77,34 @@ def _chunk_paragraphs(
                 # 单段落就超过 chunk_size，递归按句号切割
                 sentences = re.split(r'(?<=[。！？])', para)
                 for sent in sentences:
+                    if not sent.strip():
+                        continue
+                    # 超长句子按 chunk_size 切分
+                    if len(sent) > chunk_size:
+                        if buffer.strip():
+                            chunks.append({
+                                "text": buffer.strip(),
+                                "source": source,
+                                "title": title,
+                                "date": date,
+                            })
+                            buffer = ""
+                        start = 0
+                        while start < len(sent):
+                            end = min(start + chunk_size, len(sent))
+                            piece = sent[start:end]
+                            chunks.append({
+                                "text": piece,
+                                "source": source,
+                                "title": title,
+                                "date": date,
+                            })
+                            if end >= len(sent):
+                                break
+                            start = end - overlap
+                        buffer = sent[-overlap:] if len(sent) > overlap else sent
+                        continue
+
                     if len(buffer) + len(sent) <= chunk_size:
                         buffer += sent
                     else:
@@ -89,8 +115,9 @@ def _chunk_paragraphs(
                                 "title": title,
                                 "date": date,
                             })
-                            chunk_idx += 1
-                        buffer = sent
+                        # 句子分支：从前一块末尾取 overlap 字符
+                        overlap_text = buffer[-overlap:] if len(buffer) > overlap else buffer
+                        buffer = overlap_text + sent
     
     # 最后一个不满的块
     if buffer.strip():
@@ -100,8 +127,6 @@ def _chunk_paragraphs(
             "title": title,
             "date": date,
         })
-        chunk_idx += 1
-    
     return chunks
 
 
