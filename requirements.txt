@@ -1,6 +1,6 @@
 # requirements.txt — 毛选思维引擎依赖
 # RAG pipeline
-pymupdf>=1.23.0
+# TXT parser instead of PDF — no pymupdf needed
 chromadb>=0.5.0
 sentence-transformers>=2.7.0
 
