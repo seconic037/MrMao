@@ -31,10 +31,13 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 ```
 
 ## 日记存储
-所有日记文件存放在项目 `diary/` 目录下：
-- 单日日记：`diary/YYYY-MM-DD.md`
-- 周报：`diary/weekly/YYYY-Www.md`
-- 草稿：`diary/drafts/{platform}/`
+
+**基础路径：** `C:\Users\68090\iCloudDrive\一人公司\AI店长\diary`
+
+所有日记文件统一存放到此路径下，跨项目共享：
+- 单日日记：`{基础路径}/YYYY-MM-DD.md`
+- 周报：`{基础路径}/weekly/YYYY-Www.md`
+- 草稿：`{基础路径}/drafts/{platform}/`
 
 ## 数据来源与采集
 
@@ -75,7 +78,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 
 ## 日记条目结构
 
-每条日记包含以下字段，存入 `diary/YYYY-MM-DD.md`：
+每条日记包含以下字段，存入 `{基础路径}/YYYY-MM-DD.md`：
 
 ```markdown
 # 2026-07-31 日记
@@ -105,7 +108,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 当用户执行相关命令时，技能执行以下步骤：
 1. 回顾本次会话中的任务、工具调用和产出
 2. 提取关键信息填入日记条目模板
-3. 追加写入 `diary/YYYY-MM-DD.md`
+3. 追加写入 `{基础路径}/YYYY-MM-DD.md`
 4. 如果当日文件已存在，追加新条目而非覆盖
 
 ### 触发时机
@@ -116,7 +119,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 ### /diary — 查看最近日记摘要
 
 行为：
-1. 使用 `glob` 查找 `diary/*.md` 文件
+1. 使用 `glob` 查找 `{基础路径}/*.md` 文件（排除 weekly/ 和 drafts/）
 2. 按文件名排序，取最近 5 条
 3. 用 `read_file` 读取每个文件的前 10 行（标题区）
 4. 输出摘要列表
@@ -134,7 +137,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 ### /diary today — 生成今日日记草稿
 
 行为：
-1. 检查 `diary/2026-07-31.md` 是否存在
+1. 检查 `{基础路径}/YYYY-MM-DD.md` 是否存在
 2. 如果存在，读取并显示已有内容，询问是否追加
 3. 如果不存在，回顾本次会话信息，生成新日记
 4. 使用 `write_file` 写入文件
@@ -148,7 +151,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 
 输出示例：
 ```
-✅ 今日日记已生成 → diary/2026-07-31.md
+✅ 今日日记已生成 → {基础路径}/YYYY-MM-DD.md
 
 📋 今日摘要：
 1. 采集国内科技热点并生成选题报告
@@ -160,7 +163,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 ### /diary list — 浏览历史日记列表
 
 行为：
-1. 使用 `glob` 查找 `diary/*.md`（排除 weekly/ 和 drafts/）
+1. 使用 `glob` 查找 `{基础路径}/*.md`（排除 weekly/ 和 drafts/）
 2. 按日期倒序排列
 3. 显示分页列表（每页 10 条）
 4. 支持参数：`/diary list --page=2` 翻页
@@ -182,7 +185,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 2. 读取本周所有日记文件（周一至周日）
 3. 汇总本周所有任务、工具、产出
 4. 统计：任务数量、工具使用频率、产出类型分布
-5. 生成周报写入 `diary/weekly/YYYY-Www.md`
+5. 生成周报写入 `{基础路径}/weekly/YYYY-Www.md`
 
 输出格式：
 ```
@@ -205,7 +208,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 - 配图建议：在文中标注 `[截图：XXX]`
 - 结尾加话题标签 #AI日记 #AI工具
 
-输出路径：`diary/drafts/xiaohongshu/YYYY-MM-DD-标题.md`
+输出路径：`{基础路径}/drafts/xiaohongshu/YYYY-MM-DD-标题.md`
 
 #### 🎬 B站/抖音（视频脚本）
 
@@ -219,7 +222,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
   - 总结（4:00-5:00）：这件事的价值 + 下期预告
 - 格式：分镜/口播稿
 
-输出路径：`diary/drafts/bilibili/YYYY-MM-DD-标题.md`
+输出路径：`{基础路径}/drafts/bilibili/YYYY-MM-DD-标题.md`
 
 #### 📖 公众号（长文）
 
@@ -230,7 +233,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 - 风格：可加入深度思考、方法论、背景介绍
 - 适合分享AI使用心得
 
-输出路径：`diary/drafts/wechat/YYYY-MM-DD-标题.md`
+输出路径：`{基础路径}/drafts/wechat/YYYY-MM-DD-标题.md`
 
 ### /diary publish 执行流程
 
@@ -238,7 +241,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 2. 列出最近 5 条日记让用户选择要发布哪条
 3. 用户选择后，询问要生成哪个平台的版本
 4. 按对应平台的适配规则生成内容
-5. 写入 `diary/drafts/{platform}/` 目录
+5. 写入 `{基础路径}/drafts/{platform}/` 目录
 6. 提示用户草稿已生成，可手动复制发布
 
 支持参数：
