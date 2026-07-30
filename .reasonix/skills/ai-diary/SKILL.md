@@ -225,6 +225,52 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 - `/diary publish --all`    生成所有平台的版本
 - `/diary publish --platform=xiaohongshu`  指定平台
 
+### /diary endday — 下班总结
+
+行为：
+1. 自动执行 `/diary today` 生成今日日记（如果还未生成）
+2. 在日记末尾追加「🔚 下班总结」区块
+3. 统计：今日任务数、耗时、亮点
+4. 标记：今日最值得发布的内容
+5. 输出简短总结
+
+输出格式：
+```
+🔚 下班总结
+━━━━━━━━━━━━━━━━━━
+📋 今日完成 3 个任务
+🏆 亮点：用 domestic-reach 做了热点选题分析
+
+📱 推荐发布：
+  这条适合发小红书 → 体验分享
+```
+
+整合说明：
+- 此命令设计为「下班」指令的最后一个步骤
+- 执行后输出短摘要，不打断下班流程
+- 日记文件已自动保存，明日可继续编辑
+
+## 「下班」指令整合
+
+### 整合方式
+在现有的「下班」指令流程末尾添加以下内容：
+
+```
+最后调用 ai-diary 的 /diary endday 功能：
+1. 回顾本日所有会话
+2. 生成今日日记
+3. 输出下班总结
+```
+
+### 手动整合
+如果「下班」是手动流程，最后一步执行 `/diary endday`。
+
+### 脚本整合
+如果「下班」是自动化脚本，在脚本末尾调用 Reasonix 执行：
+```
+reasonix run "请执行 /diary endday"
+```
+
 ## 参考
 - 设计规格：`docs/superpowers/specs/2026-07-31-ai-diary-media-design.md`
 - 实现计划：`docs/superpowers/plans/2026-07-31-ai-diary-media.md`
