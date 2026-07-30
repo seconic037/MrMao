@@ -18,6 +18,10 @@ class _LocalEmbeddingFn:
         self._name = model_name
     def __call__(self, input: list[str]) -> list[list[float]]:
         return self._model.encode(input, normalize_embeddings=True).tolist()
+    def embed_query(self, input: list[str]) -> list[list[float]]:
+        return self._model.encode(input, normalize_embeddings=True).tolist()
+    def embed_documents(self, input: list[str]) -> list[list[float]]:
+        return self._model.encode(input, normalize_embeddings=True).tolist()
     def name(self):
         return self._name
 
