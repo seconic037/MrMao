@@ -151,8 +151,8 @@ async function readArticle(source,title){
 }
 
 // ── 首页 ────────────────────────────────────
-async function loadTopics(){try{const r=await fetch('/api/catalog');const d=await r.json();document.getElementById('topicList').innerHTML=d.topics.map(t=>`<span class="topic-item" onclick="ask('${t}')">${t}</span>`).join('')}catch(e){}}
-async function loadHotspots(){try{const r=await fetch('/api/hotspots');const d=await r.json();document.getElementById('hotspotList').innerHTML=d.hotspots.map(h=>`<div class="hotspot-item" onclick="ask('${h.title}，你怎么看？')"><span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span></div>`).join('')}catch(e){}}
+async function loadTopics(){try{const r=await fetch('/api/catalog');const d=await r.json();const el=document.getElementById('topicList');el.innerHTML=d.topics.map(t=>`<span class="topic-item" data-q="${t.replace(/"/g,'&quot;')}">${t}</span>`).join('');el.querySelectorAll('.topic-item').forEach(s=>s.onclick=()=>ask(s.dataset.q))}catch(e){}}
+async function loadHotspots(){try{const r=await fetch('/api/hotspots');const d=await r.json();const el=document.getElementById('hotspotList');el.innerHTML=d.hotspots.map(h=>`<div class="hotspot-item" data-q="${h.title.replace(/"/g,'&quot;')}，你怎么看？"><span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span></div>`).join('');el.querySelectorAll('.hotspot-item').forEach(s=>s.onclick=()=>ask(s.dataset.q))}catch(e){}}
 
 // ── 启动 ────────────────────────────────────
 fetch('/api/status').then(r=>r.json()).then(s=>{if(!s.rag)document.getElementById('stats')&&(document.getElementById('stats').innerHTML='⚠ RAG未就绪');if(!s.llm)document.getElementById('stats')&&(document.getElementById('stats').innerHTML='⚠ LLM未配置')});
