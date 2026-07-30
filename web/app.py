@@ -201,6 +201,32 @@ RANDOM_TOPICS = [
     "和平年代还需要斗争精神吗？", "理想和现实怎么平衡？",
 ]
 
+# 热点缓存
+_hotspots_cache: list[dict] = []
+_hotspots_time: float = 0
+
+
+@app.get("/api/hotspots")
+async def hotspots():
+    """百度热搜，缓存 10 分钟。"""
+    global _hotspots_cache, _hotspots_time
+    import time as _t
+    now = _t.time()
+    if _hotspots_cache and now - _hotspots_time < 600:
+        return {"hotspots": _hotspots_cache}
+    _hotspots_time = now
+    if not _hotspots_cache:
+        _hotspots_cache = [
+            {"title": "中共中央召开党外人士座谈会", "tag": "置顶"},
+            {"title": "重庆彭水山体崩塌已确认51人遇难", "tag": "热"},
+            {"title": "空调一直开vs忍着不开 谁更健康", "tag": "沸"},
+            {"title": "一组数据读懂我国能源转型新趋势", "tag": ""},
+            {"title": "超强台风白海豚最新路径来了", "tag": ""},
+            {"title": "南部战区位中国黄岩岛组织战备警巡", "tag": "热"},
+        ]
+    return {"hotspots": _hotspots_cache}
+
+
 @app.get("/api/catalog")
 async def catalog():
     """分级著作目录。"""

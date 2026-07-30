@@ -50,6 +50,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans
 .topic-list{display:flex;flex-wrap:wrap;gap:6px}
 .topic-item{background:#fff;border:1px solid var(--border);padding:6px 14px;border-radius:16px;font-size:13px;color:var(--text);cursor:pointer;transition:.2s}
 .topic-item:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.hot-list{font-size:13px}
+.hot-item{padding:5px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;cursor:pointer}
+.hot-item:hover{color:var(--primary)}
+.hot-tag{font-size:10px;padding:1px 6px;border-radius:8px;background:var(--primary);color:#fff;margin-left:6px;flex-shrink:0}
 .catalog-toggle{cursor:pointer;font-size:12px;color:var(--text-light);margin-left:8px}
 .catalog{font-size:13px}
 .cat-group{margin-bottom:10px}

@@ -189,6 +189,22 @@ fetch('/api/status').then(r => r.json()).then(s => {
 });
 loadTopics();
 loadCatalog();
+loadHotspots();
+
+// ── 热点话题 ──────────────────────────────────
+async function loadHotspots() {
+    try {
+        const r = await fetch('/api/hotspots');
+        const d = await r.json();
+        const el = document.getElementById('hotList');
+        if (!el || !d.hotspots) return;
+        el.innerHTML = d.hotspots.map(h => 
+            `<div class="hot-item" onclick="enterChat();setTimeout(()=>{document.getElementById('msg').value='${h.title}，你怎么看？';send()},200)">
+                <span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span>
+            </div>`
+        ).join('');
+    } catch(e) {}
+}
 
 // ── 首页话题 ──────────────────────────────────
 async function loadTopics() {
