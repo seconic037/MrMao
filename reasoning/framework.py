@@ -1,18 +1,6 @@
 """毛式推理引擎：加载 book-to-skill 知识库 + RAG 结果 → 生成分析 Prompt。"""
 import os
-from dataclasses import dataclass
-from typing import Optional
 from jinja2 import Environment, FileSystemLoader
-
-
-@dataclass
-class SearchResult:
-    text: str
-    source: str
-    title: str
-    date: str = ""
-    score: float = 0.0
-    chunk_id: str = ""
 
 
 class MaoReasoningEngine:
