@@ -11,6 +11,25 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 自动记录用户与 AI Agent（Reasonix + DeepSeek）的交互过程，生成多平台适配的自媒体内容。
 定位：日记型自媒体 — 「我和AI的日常」
 
+### 整体架构
+
+```
+┌─ 采集层 ─────────────────────────┐
+│  回顾会话，提取任务/工具/产出信息    │
+└──────────────┬───────────────────┘
+               ↓
+┌─ 加工层 ─────────────────────────┐
+│  /diary today     → 生成今日日记   │
+│  /diary weekly    → 生成周报       │
+│  /diary endday    → 下班总结       │
+└──────────────┬───────────────────┘
+               ↓
+┌─ 分发层 ─────────────────────────┐
+│  /diary publish → 多平台适配版本   │
+│  小红书(图文) / B站(脚本) / 公众号(文)│
+└──────────────────────────────────┘
+```
+
 ## 日记存储
 所有日记文件存放在项目 `diary/` 目录下：
 - 单日日记：`diary/YYYY-MM-DD.md`
@@ -52,7 +71,7 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 4. 未匹配则显示帮助信息
 
 ### 联动
-- `/diary publish` 和 `/diary today` 执行时可调用 domestic-reach 技能辅助判断话题热度
+- `/diary publish` 和 `/diary today` 执行时可调用 domestic-reach 技能辅助判断话题热度（详见「与 domestic-reach 联动」章节）
 
 ## 日记条目结构
 
@@ -81,14 +100,16 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 
 ## 自动记录机制
 
-当对话结束时，技能自动执行以下步骤：
+作为 subagent 技能，自动记录通过命令触发执行：
+
+当用户执行相关命令时，技能执行以下步骤：
 1. 回顾本次会话中的任务、工具调用和产出
 2. 提取关键信息填入日记条目模板
 3. 追加写入 `diary/YYYY-MM-DD.md`
 4. 如果当日文件已存在，追加新条目而非覆盖
 
 ### 触发时机
-- 用户主动调用 `/diary` 系列命令时
+- 用户主动调用 `/diary today` 时
 - 整合进「下班」指令时（通过 `/diary endday`）
 - 用户明确要求"记录一下"时
 
