@@ -271,6 +271,30 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 reasonix run "请执行 /diary endday"
 ```
 
+## 与 domestic-reach 联动
+
+### 触发场景
+1. 用户执行 `/diary publish` 时，自动判断当前话题热度
+2. 用户执行 `/diary today` 时，标记热门选题
+
+### 联动方式
+通过 subagent 调用 domestic-reach 技能：
+
+```
+调用 domestic-reach，参数：采集当前国内热点，聚焦与当前日记话题相关的领域
+```
+
+### 输出增强
+在日记中增加热度标记：
+
+```
+🔥 热度判断
+━━━━━━━━━━━━━━━━━━
+相关热点：小米澎程系列发布（百度沸🔥）
+话题热度：⭐⭐⭐⭐（高）
+建议：趁热发布，搭配「AI如何帮你追热点」角度
+```
+
 ## 参考
 - 设计规格：`docs/superpowers/specs/2026-07-31-ai-diary-media-design.md`
 - 实现计划：`docs/superpowers/plans/2026-07-31-ai-diary-media.md`
