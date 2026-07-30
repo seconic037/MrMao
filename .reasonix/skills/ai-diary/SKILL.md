@@ -174,6 +174,57 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 📱 适合发布：[推荐本周值得发的内容]
 ```
 
+### /diary publish — 输出多平台适配版本
+
+#### 📱 小红书（图文笔记）
+
+适配规则：
+- 标题：提问式/观点式 + emoji，不超过 20 字
+- 正文：800-1500 字，口语化，用「❶❷❸」分点
+- 配图建议：在文中标注 `[截图：XXX]`
+- 结尾加话题标签 #AI日记 #AI工具
+
+输出路径：`diary/drafts/xiaohongshu/YYYY-MM-DD-标题.md`
+
+#### 🎬 B站/抖音（视频脚本）
+
+适配规则：
+- 时长：3-5 分钟
+- 结构：
+  - Hook（0:00-0:15）：抛出一个问题或惊人结果
+  - 引入（0:15-0:45）：今天让AI做了什么
+  - 过程（0:45-3:00）：展示操作过程/关键步骤
+  - 结果（3:00-4:00）：展示AI的产出
+  - 总结（4:00-5:00）：这件事的价值 + 下期预告
+- 格式：分镜/口播稿
+
+输出路径：`diary/drafts/bilibili/YYYY-MM-DD-标题.md`
+
+#### 📖 公众号（长文）
+
+适配规则：
+- 标题：信息量大，含关键词
+- 结构：导语 → 正文(2-3个小标题分段) → 总结
+- 字数：2000-4000 字
+- 风格：可加入深度思考、方法论、背景介绍
+- 适合分享AI使用心得
+
+输出路径：`diary/drafts/wechat/YYYY-MM-DD-标题.md`
+
+### /diary publish 执行流程
+
+1. 用户执行 `/diary publish`
+2. 列出最近 5 条日记让用户选择要发布哪条
+3. 用户选择后，询问要生成哪个平台的版本
+4. 按对应平台的适配规则生成内容
+5. 写入 `diary/drafts/{platform}/` 目录
+6. 提示用户草稿已生成，可手动复制发布
+
+支持参数：
+- `/diary publish --today`  直接发布今日日记
+- `/diary publish --all`    生成所有平台的版本
+- `/diary publish --platform=xiaohongshu`  指定平台
+
 ## 参考
 - 设计规格：`docs/superpowers/specs/2026-07-31-ai-diary-media-design.md`
 - 实现计划：`docs/superpowers/plans/2026-07-31-ai-diary-media.md`
