@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>毛选工作台</title>
+  <style>
+    :root {
+      --paper: #f6f0e3;
+      --paper-deep: #e8dfcd;
+      --ink: #1f1b16;
+      --ink-soft: #5e5345;
+      --accent: #9e2f24;
+      --accent-soft: #d46a43;
+      --gold: #9a6f20;
+      --card: rgba(255, 252, 245, 0.82);
+      --line: rgba(50, 34, 24, 0.12);
+      --shadow: 0 24px 80px rgba(49, 29, 18, 0.12);
+      --radius: 24px;
+      --font-ui: "Avenir Next", "Segoe UI Variable", "PingFang SC", "Hiragino Sans GB", sans-serif;
+      --font-title: "Iowan Old Style", "Palatino Linotype", "Songti SC", "STSong", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--font-ui);
+      background:
+        radial-gradient(circle at top left, rgba(158, 47, 36, 0.09), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(212, 106, 67, 0.12), transparent 22%),
+        linear-gradient(180deg, #fbf7ef 0%, #f1e8d9 100%);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(50, 34, 24, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(50, 34, 24, 0.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent);
+    }
+
+    .shell {
+      width: min(1540px, calc(100vw - 32px));
+      margin: 24px auto;
+      display: grid;
+      grid-template-columns: 460px 1fr;
+      gap: 20px;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .control-panel {
+      padding: 22px;
+      position: sticky;
+      top: 20px;
+      align-self: start;
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+    }
+
+    .dashboard {
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .brand {
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 10px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      font-family: var(--font-title);
+      font-weight: 700;
+    }
+
+    h1 {
+      font-size: clamp(28px, 3vw, 44px);
+      line-height: 1.02;
+    }
+
+    h2 {
+      font-size: 24px;
+      line-height: 1.1;
+    }
+
+    h3 {
+      font-size: 18px;
+      line-height: 1.15;
+    }
+
+    p {
+      margin: 0;
+      color: var(--ink-soft);
+      line-height: 1.65;
+    }
+
+    .section {
+      padding: 18px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .section:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .label {
+      display: block;
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid rgba(50, 34, 24, 0.16);
+      background: rgba(255, 255, 255, 0.76);
+      border-radius: 16px;
+      padding: 12px 14px;
+      color: var(--ink);
+      font: inherit;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: rgba(158, 47, 36, 0.45);
+      box-shadow: 0 0 0 4px rgba(158, 47, 36, 0.12);
+      transform: translateY(-1px);
+    }
+
+    textarea {
+      min-height: 82px;
+      resize: vertical;
+    }
+
+    .field-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .field-grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      opacity: 0.96;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 10px 28px rgba(158, 47, 36, 0.28);
+    }
+
+    .ghost {
+      background: rgba(255, 255, 255, 0.82);
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    .warn {
+      background: rgba(154, 111, 32, 0.12);
+      color: #6c4b12;
+      border: 1px solid rgba(154, 111, 32, 0.16);
+    }
+
+    .status,
+    .hint-box,
+    .warning-box {
+      margin-top: 10px;
+      font-size: 12px;
+      line-height: 1.6;
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .status {
+      color: var(--ink-soft);
+      background: rgba(255, 255, 255, 0.62);
+      border: 1px solid var(--line);
+    }
+
+    .hint-box {
+      color: var(--ink-soft);
+      background: rgba(255, 255, 255, 0.58);
+      border: 1px dashed rgba(50, 34, 24, 0.18);
+    }
+
+    .warning-box {
+      color: #7a3f17;
+      background: rgba(154, 111, 32, 0.1);
+      border: 1px solid rgba(154, 111, 32, 0.16);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+    }
+
+    .hero-card,
+    .card,
+    .column,
+    .year-card,
+    .route-card,
+    .thought-card,
+    .action-card,
+    .ledger-card {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.62);
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::after,
+    .route-card::after,
+    .year-card::after,
+    .ledger-card::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 140px;
+      height: 140px;
+      background: radial-gradient(circle, rgba(158, 47, 36, 0.16), transparent 68%);
+      transform: translate(30%, -30%);
+      pointer-events: none;
+    }
+
+    .hero-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(246, 240, 227, 0.78);
+      border: 1px solid var(--line);
+    }
+
+    .metric .value {
+      font-size: 28px;
+      font-family: var(--font-title);
+      margin-top: 6px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(158, 47, 36, 0.08);
+      color: var(--accent);
+      font-size: 12px;
+    }
+
+    .pill strong {
+      color: var(--ink);
+    }
+
+    .mono {
+      font-family: "SFMono-Regular", "JetBrains Mono", "Fira Code", monospace;
+      font-size: 13px;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .column h3 {
+      margin-bottom: 12px;
+    }
+
+    .items {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.76);
+      border: 1px solid rgba(50, 34, 24, 0.1);
+      color: var(--ink);
+      line-height: 1.52;
+      white-space: pre-wrap;
+    }
+
+    .routes,
+    .thoughts,
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .five-year {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .route-block,
+    .thought-block,
+    .year-block {
+      margin-top: 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .mini-label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    .facts {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .ledger-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .ledger-entry {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(50, 34, 24, 0.1);
+      display: grid;
+      gap: 8px;
+    }
+
+    .ledger-time {
+      font-size: 12px;
+      color: var(--soft);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    @media (max-width: 1200px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .control-panel {
+        position: static;
+        max-height: none;
+      }
+
+      .hero,
+      .board,
+      .routes,
+      .five-year,
+      .thoughts,
+      .actions,
+      .facts {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="panel control-panel">
+      <div class="brand">
+        <p class="eyebrow">Maoxuan Workbench</p>
+        <h2>毛选工作台</h2>
+        <p>支持按项目建档、选择旧项目续写、补录最新进展、形成新的台账记录。默认鼓励一次围绕一个主目标推进。</p>
+      </div>
+
+      <div class="section field-grid">
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="projectPicker">选择项目</label>
+            <select id="projectPicker"></select>
+          </div>
+          <div>
+            <label class="label" for="projectName">项目名</label>
+            <input id="projectName" data-key="projectName" placeholder="例如：高校岗位与 AI 联培读博选择">
+          </div>
+        </div>
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="goalType">目标类型</label>
+            <select id="goalType" data-key="goalType">
+              <option value="AI落地">AI落地</option>
+              <option value="晋升">晋升</option>
+              <option value="组织推进">组织推进</option>
+              <option value="流程优化">流程优化</option>
+              <option value="个人转型">个人转型</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+          <div>
+            <label class="label" for="routePreference">路线偏好</label>
+            <select id="routePreference" data-key="routePreference">
+              <option value="稳扎稳打">稳扎稳打</option>
+              <option value="主动突破">主动突破</option>
+              <option value="保守防御">保守防御</option>
+              <option value="未确定">未确定</option>
+            </select>
+          </div>
+        </div>
+        <div class="button-row">
+          <button class="primary" id="newProjectBtn" type="button">新建项目</button>
+          <button class="ghost" id="saveProjectBtn" type="button">保存项目</button>
+          <button class="ghost" id="snapshotBtn" type="button">记录本次进展</button>
+        </div>
+        <div class="hint-box">
+          建议一个项目只围绕一个主目标。如果你同时想做“读博选择、城市发展、副业探索”三个目标，优先先选主战线，再拆成多个项目。
+        </div>
+      </div>
+
+      <div class="section field-grid">
+        <div>
+          <label class="label" for="objective">主目标</label>
+          <input id="objective" data-key="objective" placeholder="例如：30 天内判断 AI 联培读博机会是否值得投入">
+        </div>
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="timeScale">时间尺度</label>
+            <select id="timeScale" data-key="timeScale">
+              <option value="7天">7天</option>
+              <option value="30天">30天</option>
+              <option value="90天">90天</option>
+              <option value="1年">1年</option>
+              <option value="5年">5年</option>
+              <option value="自定义">自定义</option>
+            </select>
+          </div>
+          <div>
+            <label class="label" for="stage">当前阶段</label>
+            <select id="stage" data-key="stage">
+              <option value="起步">起步</option>
+              <option value="相持">相持</option>
+              <option value="攻坚">攻坚</option>
+              <option value="扩张">扩张</option>
+              <option value="调整">调整</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="label" for="northStar">北极星</label>
+          <input id="northStar" data-key="northStar" placeholder="例如：每季度一个可量化的业务胜仗">
+        </div>
+      </div>
+
+      <div class="section field-grid">
+        <div>
+          <label class="label" for="backgroundFacts">关键背景</label>
+          <textarea id="backgroundFacts" data-key="backgroundFacts" placeholder="行业背景、组织背景、历史包袱、已有条件"></textarea>
+        </div>
+        <div>
+          <label class="label" for="objectiveFacts">客观事实</label>
+          <textarea id="objectiveFacts" data-key="objectiveFacts" placeholder="预算、人员、约束、现状数据、已有成果。尽量写事实，不写愿望。"></textarea>
+        </div>
+        <div>
+          <label class="label" for="latestProgress">最新进展</label>
+          <textarea id="latestProgress" data-key="latestProgress" placeholder="本次更新相对上次发生了什么变化"></textarea>
+        </div>
+        <div>
+          <label class="label" for="ledgerNote">本次台账备注</label>
+          <textarea id="ledgerNote" data-key="ledgerNote" placeholder="本次记录想重点记住什么，哪些旧判断需要修正"></textarea>
+        </div>
+        <div class="warning-box" id="factWarning">提示：输入足够背景和客观事实后，再做高确定性判断。事实不足时，应把结论降级为假设版路线。</div>
+      </div>
+
+      <div class="section field-grid">
+        <div>
+          <label class="label" for="primaryContradiction">主要矛盾</label>
+          <textarea id="primaryContradiction" data-key="primaryContradiction" placeholder="当前最牵一发动全身的问题是什么"></textarea>
+        </div>
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="mainAspect">主要方面</label>
+            <textarea id="mainAspect" data-key="mainAspect" placeholder="主要矛盾中的主导面"></textarea>
+          </div>
+          <div>
+            <label class="label" for="turningCondition">转化条件</label>
+            <textarea id="turningCondition" data-key="turningCondition" placeholder="哪些条件变化会带来逆转"></textarea>
+          </div>
+        </div>
+        <div>
+          <label class="label" for="focusPoint">当前抓手</label>
+          <textarea id="focusPoint" data-key="focusPoint" placeholder="先抓哪一点，先打哪一仗"></textarea>
+        </div>
+      </div>
+
+      <div class="section field-grid">
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="objectiveTrend">客观1 趋势</label>
+            <textarea id="objectiveTrend" data-key="objectiveTrend" placeholder="趋势顺不顺风"></textarea>
+          </div>
+          <div>
+            <label class="label" for="objectiveResources">客观2 资源</label>
+            <textarea id="objectiveResources" data-key="objectiveResources" placeholder="钱、人、时间、渠道、技术"></textarea>
+          </div>
+        </div>
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="objectiveConstraints">客观3 约束</label>
+            <textarea id="objectiveConstraints" data-key="objectiveConstraints" placeholder="外部约束、竞争和时点"></textarea>
+          </div>
+          <div>
+            <label class="label" for="subjectiveJudgment">主观1 判断</label>
+            <textarea id="subjectiveJudgment" data-key="subjectiveJudgment" placeholder="是否看清主矛盾和节奏"></textarea>
+          </div>
+        </div>
+        <div>
+          <label class="label" for="subjectiveExecution">主观2 组织执行</label>
+          <textarea id="subjectiveExecution" data-key="subjectiveExecution" placeholder="能否组织、推进、复盘、纠偏"></textarea>
+        </div>
+      </div>
+
+      <div class="section field-grid">
+        <div>
+          <label class="label" for="routeSteady">稳扎稳打线</label>
+          <textarea id="routeSteady" data-key="routeSteady" placeholder="战略 / 方针 / 结果 / 风险"></textarea>
+        </div>
+        <div>
+          <label class="label" for="routeBreakthrough">主动突破线</label>
+          <textarea id="routeBreakthrough" data-key="routeBreakthrough" placeholder="战略 / 方针 / 结果 / 风险"></textarea>
+        </div>
+        <div>
+          <label class="label" for="routeDefensive">保守防御线</label>
+          <textarea id="routeDefensive" data-key="routeDefensive" placeholder="战略 / 方针 / 结果 / 风险"></textarea>
+        </div>
+      </div>
+
+      <div class="section field-grid">
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="tasksDoing">进行中</label>
+            <textarea id="tasksDoing" data-key="tasksDoing" placeholder="每行一个任务"></textarea>
+          </div>
+          <div>
+            <label class="label" for="tasksNext">下一步</label>
+            <textarea id="tasksNext" data-key="tasksNext" placeholder="每行一个任务"></textarea>
+          </div>
+        </div>
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="tasksBlocked">风险阻塞</label>
+            <textarea id="tasksBlocked" data-key="tasksBlocked" placeholder="每行一个风险"></textarea>
+          </div>
+          <div>
+            <label class="label" for="tasksDone">已完成</label>
+            <textarea id="tasksDone" data-key="tasksDone" placeholder="每行一个完成项"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="section field-grid">
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="year1">第一年</label>
+            <textarea id="year1" data-key="year1" placeholder="主题 / 战略任务 / 能力建设"></textarea>
+          </div>
+          <div>
+            <label class="label" for="year2">第二年</label>
+            <textarea id="year2" data-key="year2" placeholder="主题 / 战略任务 / 能力建设"></textarea>
+          </div>
+        </div>
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="year3">第三年</label>
+            <textarea id="year3" data-key="year3" placeholder="主题 / 战略任务 / 能力建设"></textarea>
+          </div>
+          <div>
+            <label class="label" for="year4">第四年</label>
+            <textarea id="year4" data-key="year4" placeholder="主题 / 战略任务 / 能力建设"></textarea>
+          </div>
+        </div>
+        <div>
+          <label class="label" for="year5">第五年</label>
+          <textarea id="year5" data-key="year5" placeholder="主题 / 战略任务 / 能力建设"></textarea>
+        </div>
+      </div>
+
+      <div class="section field-grid">
+        <div>
+          <label class="label" for="latestJudgment">最新判断</label>
+          <textarea id="latestJudgment" data-key="latestJudgment" placeholder="近期思想动态中的核心判断"></textarea>
+        </div>
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="newRisks">新增风险</label>
+            <textarea id="newRisks" data-key="newRisks" placeholder="每行一个"></textarea>
+          </div>
+          <div>
+            <label class="label" for="newOpportunities">新增机会</label>
+            <textarea id="newOpportunities" data-key="newOpportunities" placeholder="每行一个"></textarea>
+          </div>
+        </div>
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="oldAssumptionsToFix">要修正的旧判断</label>
+            <textarea id="oldAssumptionsToFix" data-key="oldAssumptionsToFix" placeholder="哪些旧判断已经不成立"></textarea>
+          </div>
+          <div>
+            <label class="label" for="watchSignals">盯住的信号</label>
+            <textarea id="watchSignals" data-key="watchSignals" placeholder="每行一个信号"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="section field-grid">
+        <div class="field-grid two">
+          <div>
+            <label class="label" for="actions7d">7天动作</label>
+            <textarea id="actions7d" data-key="actions7d" placeholder="每行一个动作"></textarea>
+          </div>
+          <div>
+            <label class="label" for="actions30d">30天动作</label>
+            <textarea id="actions30d" data-key="actions30d" placeholder="每行一个动作"></textarea>
+          </div>
+        </div>
+        <div>
+          <label class="label" for="actions90d">90天动作</label>
+          <textarea id="actions90d" data-key="actions90d" placeholder="每行一个动作"></textarea>
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button class="primary" id="saveBtn" type="button">保存当前项目</button>
+        <button class="ghost" id="exportBtn" type="button">导出当前项目 JSON</button>
+        <button class="warn" id="resetBtn" type="button">重置当前项目</button>
+      </div>
+      <div class="status" id="statusText">状态：未保存</div>
+    </aside>
+
+    <main class="panel dashboard">
+      <section class="hero">
+        <article class="hero-card">
+          <p class="eyebrow">Project Board</p>
+          <h1 id="viewObjective">围绕一个主目标，建立一个可持续推进的项目台账</h1>
+          <div class="pill-row">
+            <div class="pill"><span>项目</span><strong id="viewProjectName">默认项目</strong></div>
+            <div class="pill"><span>类型</span><strong id="viewGoalType">AI落地</strong></div>
+            <div class="pill"><span>路线</span><strong id="viewRoutePreference">稳扎稳打</strong></div>
+            <div class="pill"><span>阶段</span><strong id="viewStage">起步</strong></div>
+          </div>
+          <p id="viewPrimaryContradiction">先搞清楚主要矛盾，再决定路线和动作。</p>
+        </article>
+        <article class="hero-card">
+          <p class="eyebrow">成事公式</p>
+          <div class="hero-metrics">
+            <div class="metric">
+              <div class="mini-label">客观3</div>
+              <div class="value" id="objectiveScore">3 / 3</div>
+              <p id="viewObjectiveSummary">趋势、资源、约束</p>
+            </div>
+            <div class="metric">
+              <div class="mini-label">主观2</div>
+              <div class="value" id="subjectiveScore">2 / 2</div>
+              <p id="viewSubjectiveSummary">判断、组织执行</p>
+            </div>
+            <div class="metric">
+              <div class="mini-label">时间尺度</div>
+              <div class="value mono" id="viewTimeScale">90天</div>
+            </div>
+            <div class="metric">
+              <div class="mini-label">当前抓手</div>
+              <p id="viewFocusPoint">从最能撬动全局的一点下手。</p>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Fact Base</p>
+        <h2>背景与客观事实</h2>
+        <div class="facts">
+          <article class="ledger-card">
+            <h3>关键背景</h3>
+            <div class="route-block">
+              <span class="mini-label">背景说明</span>
+              <p id="viewBackgroundFacts">待补充</p>
+            </div>
+          </article>
+          <article class="ledger-card">
+            <h3>客观事实</h3>
+            <div class="route-block">
+              <span class="mini-label">事实与约束</span>
+              <p id="viewObjectiveFacts">待补充</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Latest Update</p>
+        <h2>最新进展</h2>
+        <div class="facts">
+          <article class="ledger-card">
+            <h3>本次更新</h3>
+            <div class="route-block">
+              <span class="mini-label">最新进展</span>
+              <p id="viewLatestProgress">待补充</p>
+            </div>
+          </article>
+          <article class="ledger-card">
+            <h3>本次备注</h3>
+            <div class="route-block">
+              <span class="mini-label">台账说明</span>
+              <p id="viewLedgerNote">待补充</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Three Routes</p>
+        <h2>三段推演预测路线</h2>
+        <div class="routes">
+          <article class="route-card">
+            <h3>稳扎稳打线</h3>
+            <div class="route-block">
+              <span class="mini-label">战略 -> 方针 -> 结果</span>
+              <p id="viewRouteSteady">先做根据地，再逐步扩大战果。</p>
+            </div>
+          </article>
+          <article class="route-card">
+            <h3>主动突破线</h3>
+            <div class="route-block">
+              <span class="mini-label">战略 -> 方针 -> 结果</span>
+              <p id="viewRouteBreakthrough">集中兵力打穿关键点，迅速形成势能。</p>
+            </div>
+          </article>
+          <article class="route-card">
+            <h3>保守防御线</h3>
+            <div class="route-block">
+              <span class="mini-label">战略 -> 方针 -> 结果</span>
+              <p id="viewRouteDefensive">先稳住阵地，保存实力，避免误判。</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Execution Board</p>
+        <h2>项目看板</h2>
+        <div class="board">
+          <article class="column">
+            <h3>进行中</h3>
+            <div class="items" id="viewTasksDoing"></div>
+          </article>
+          <article class="column">
+            <h3>下一步</h3>
+            <div class="items" id="viewTasksNext"></div>
+          </article>
+          <article class="column">
+            <h3>风险阻塞</h3>
+            <div class="items" id="viewTasksBlocked"></div>
+          </article>
+          <article class="column">
+            <h3>已完成</h3>
+            <div class="items" id="viewTasksDone"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Five-Year Plan</p>
+        <h2>五年计划看板</h2>
+        <div class="five-year">
+          <article class="year-card">
+            <h3>第一年</h3>
+            <div class="year-block"><p id="viewYear1"></p></div>
+          </article>
+          <article class="year-card">
+            <h3>第二年</h3>
+            <div class="year-block"><p id="viewYear2"></p></div>
+          </article>
+          <article class="year-card">
+            <h3>第三年</h3>
+            <div class="year-block"><p id="viewYear3"></p></div>
+          </article>
+          <article class="year-card">
+            <h3>第四年</h3>
+            <div class="year-block"><p id="viewYear4"></p></div>
+          </article>
+          <article class="year-card">
+            <h3>第五年</h3>
+            <div class="year-block"><p id="viewYear5"></p></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Mental Dynamics</p>
+        <h2>近期思想动态</h2>
+        <div class="thoughts">
+          <article class="thought-card">
+            <h3>最新判断</h3>
+            <p id="viewLatestJudgment"></p>
+          </article>
+          <article class="thought-card">
+            <h3>新增风险 / 机会</h3>
+            <div class="thought-block">
+              <span class="mini-label">新增风险</span>
+              <div class="items" id="viewNewRisks"></div>
+            </div>
+            <div class="thought-block">
+              <span class="mini-label">新增机会</span>
+              <div class="items" id="viewNewOpportunities"></div>
+            </div>
+          </article>
+          <article class="thought-card">
+            <h3>修正与信号</h3>
+            <div class="thought-block">
+              <span class="mini-label">要修正的旧判断</span>
+              <div class="items" id="viewOldAssumptionsToFix"></div>
+            </div>
+            <div class="thought-block">
+              <span class="mini-label">盯住的信号</span>
+              <div class="items" id="viewWatchSignals"></div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Action Guide</p>
+        <h2>近期行动落地指南</h2>
+        <div class="actions">
+          <article class="action-card">
+            <h3>7天动作</h3>
+            <div class="items" id="viewActions7d"></div>
+          </article>
+          <article class="action-card">
+            <h3>30天动作</h3>
+            <div class="items" id="viewActions30d"></div>
+          </article>
+          <article class="action-card">
+            <h3>90天动作</h3>
+            <div class="items" id="viewActions90d"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="card">
+        <p class="eyebrow">Ledger</p>
+        <h2>项目台账</h2>
+        <div class="ledger-list" id="ledgerList"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "maoxuan-workbench-projects-v2";
+    const fieldKeys = [
+      "projectName", "objective", "goalType", "routePreference", "timeScale", "stage", "northStar",
+      "backgroundFacts", "objectiveFacts", "latestProgress", "ledgerNote",
+      "primaryContradiction", "mainAspect", "turningCondition", "focusPoint",
+      "objectiveTrend", "objectiveResources", "objectiveConstraints",
+      "subjectiveJudgment", "subjectiveExecution",
+      "routeSteady", "routeBreakthrough", "routeDefensive",
+      "tasksDoing", "tasksNext", "tasksBlocked", "tasksDone",
+      "year1", "year2", "year3", "year4", "year5",
+      "latestJudgment", "newRisks", "newOpportunities", "oldAssumptionsToFix", "watchSignals",
+      "actions7d", "actions30d", "actions90d"
+    ];
+
+    const listTargets = [
+      "tasksDoing", "tasksNext", "tasksBlocked", "tasksDone",
+      "newRisks", "newOpportunities", "oldAssumptionsToFix", "watchSignals",
+      "actions7d", "actions30d", "actions90d"
+    ];
+
+    const defaults = {
+      projectName: "默认项目",
+      objective: "围绕一个主目标，把诊断、推演、落地、复盘串成闭环",
+      goalType: "AI落地",
+      routePreference: "稳扎稳打",
+      timeScale: "90天",
+      stage: "起步",
+      northStar: "每个阶段都形成一场可验证的胜仗",
+      backgroundFacts: "请补充项目背景、组织背景、历史包袱和已有条件。",
+      objectiveFacts: "请补充预算、人员、数据、安全约束、现状数据和已发生事实。",
+      latestProgress: "请补充这次相对上次发生了什么变化。",
+      ledgerNote: "请记录这次最值得保留的判断或修正。",
+      primaryContradiction: "知道自己想做什么，但还没有把主矛盾、路线和动作压成一个单目标项目。",
+      mainAspect: "不是信息不够，而是主目标不够单一、事实基础不够扎实。",
+      turningCondition: "一旦围绕一个主目标形成首个样板，项目会从讨论走向可复制推进。",
+      focusPoint: "先打穿最能证明价值的一点，而不是同时铺开多个目标。",
+      objectiveTrend: "大方向有机会，但机会要靠事实和节奏承接。",
+      objectiveResources: "已有方法论、模板和存档机制。",
+      objectiveConstraints: "用户容易混入多个目标，背景事实常常不够完整。",
+      subjectiveJudgment: "已经意识到要把工作台做成项目化、可续写的系统。",
+      subjectiveExecution: "下一步是强化单目标约束和台账续写机制。",
+      routeSteady: "战略：围绕单目标先做首个台账闭环。\\n方针：一个项目一个目标。\\n结果：更稳定复用。\\n风险：推进速度可能稍慢。",
+      routeBreakthrough: "战略：对某个关键目标集中突破。\\n方针：快速形成样板案例。\\n结果：更快看到成效。\\n风险：事实基础不足时容易误判。",
+      routeDefensive: "战略：先补背景与事实。\\n方针：先收集事实，再做重判断。\\n结果：误判更少。\\n风险：节奏偏慢。",
+      tasksDoing: "整理主目标\\n补背景事实\\n形成第一版台账",
+      tasksNext: "拆掉支线目标\\n记录本次进展\\n形成新的判断",
+      tasksBlocked: "目标太多\\n事实不足\\n旧项目缺续写机制",
+      tasksDone: "建立项目级工作台\\n支持本地存档\\n支持项目切换",
+      year1: "主题：建档\\n任务：明确主目标\\n能力：事实驱动",
+      year2: "主题：跑通\\n任务：形成样板\\n能力：节奏复盘",
+      year3: "主题：复制\\n任务：扩展更多项目\\n能力：组织推进",
+      year4: "主题：系统化\\n任务：项目组合管理\\n能力：路线切换",
+      year5: "主题：固化\\n任务：形成长期操作系统\\n能力：持续演化",
+      latestJudgment: "如果项目没有足够背景和客观事实，就不要给出过满结论。",
+      newRisks: "目标混杂\\n事实不足",
+      newOpportunities: "项目可续写\\n可按路线存档",
+      oldAssumptionsToFix: "原来以为一个工作台能容纳所有目标，现在要按项目拆开。",
+      watchSignals: "主目标是否单一\\n事实是否补足\\n旧项目是否持续更新",
+      actions7d: "动作：明确项目主目标。\n目的：避免一个项目同时承载多个目标，导致主战线失焦。\n验证：项目名、主目标、目标类型、路线偏好都能被一句话说清。\n毛选执行标准：抓主要矛盾 + 集中兵力。\n与 KPI 或组织结果的关系：保证项目从一开始就围绕最核心结果组织，而不是散点推进。\n\n动作：补足背景和客观事实。\n目的：给后续判断提供事实基础，而不是靠愿望推进。\n验证：至少补齐背景、客观事实、最新进展三类信息。\n毛选执行标准：实事求是 + 调查研究。\n与 KPI 或组织结果的关系：事实越充分，路线判断越稳，返工越少。\n\n动作：记录第一条台账。\n目的：让项目开始积累演变过程，而不是只保留最终结论。\n验证：形成一条带时间戳的最新进展记录。\n毛选执行标准：复盘纠偏。\n与 KPI 或组织结果的关系：帮助后续持续追踪哪些动作真正推动了结果。",
+      actions30d: "动作：完成两次项目续写。\n目的：验证项目不是一次性分析，而是持续推进机制。\n验证：至少新增两条台账记录，并能看到判断变化。\n毛选执行标准：复盘纠偏 + 从个别到一般。\n与 KPI 或组织结果的关系：持续复盘能减少误判，提升推进质量。\n\n动作：修正旧判断。\n目的：避免把早期判断当成固定真理。\n验证：明确写出哪些旧判断需要调整，为什么调整。\n毛选执行标准：实事求是 + 批评与自我批评。\n与 KPI 或组织结果的关系：让项目保持适应性，避免错误路线持续消耗资源。\n\n动作：稳定路线选择。\n目的：在稳扎稳打、主动突破、保守防御之间形成更清晰主线。\n验证：能明确说出当前项目以哪条路线为主，另外两条如何作为备选。\n毛选执行标准：抓主要矛盾 + 不打无准备之仗。\n与 KPI 或组织结果的关系：路线清晰后，资源配置和结果验证都会更有效。",
+      actions90d: "动作：形成多个项目档案。\n目的：让不同目标按项目拆开，而不是全部挤进一个看板。\n验证：至少形成两个项目，并可在 HTML 中切换查看。\n毛选执行标准：抓主要矛盾 + 组织化。\n与 KPI 或组织结果的关系：不同项目边界清晰后，责任和成果更容易被看见。\n\n动作：验证台账能推动结果。\n目的：确认这个工作台不只是记录工具，而是实际推进工具。\n验证：至少一个项目因为台账记录带来新的判断、新动作或结果改善。\n毛选执行标准：实践论 + 复盘纠偏。\n与 KPI 或组织结果的关系：让记录系统真正服务推进，而非制造信息噪音。\n\n动作：沉淀复用模板。\n目的：把个别项目经验变成可复制方法。\n验证：新项目建档时间明显缩短，字段和动作结构可直接复用。\n毛选执行标准：从个别到一般 + 星星之火可以燎原。\n与 KPI 或组织结果的关系：模板化会提升组织整体推进效率。"
+    };
+
+    const store = loadStore();
+    const state = { ...defaults };
+    const inputs = document.querySelectorAll("[data-key]");
+    const picker = document.getElementById("projectPicker");
+    const statusText = document.getElementById("statusText");
+    const factWarning = document.getElementById("factWarning");
+
+    function createProject(seed = {}) {
+      const id = `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      return {
+        id,
+        updatedAt: new Date().toISOString(),
+        data: { ...defaults, ...seed },
+        ledgerEntries: []
+      };
+    }
+
+    function enrichActionBlocks(data) {
+      const looksPlain = (value) => value && !String(value).includes("动作：");
+      if (looksPlain(data.actions7d)) data.actions7d = defaults.actions7d;
+      if (looksPlain(data.actions30d)) data.actions30d = defaults.actions30d;
+      if (looksPlain(data.actions90d)) data.actions90d = defaults.actions90d;
+      return data;
+    }
+
+    function loadStore() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          const initial = createProject();
+          return { currentProjectId: initial.id, projects: [initial] };
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed.projects || !parsed.projects.length) {
+          const initial = createProject();
+          return { currentProjectId: initial.id, projects: [initial] };
+        }
+        return parsed;
+      } catch (error) {
+        const initial = createProject();
+        return { currentProjectId: initial.id, projects: [initial] };
+      }
+    }
+
+    function saveStore(message = "状态：已保存") {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      statusText.textContent = `${message} ${new Date().toLocaleString("zh-CN")}`;
+    }
+
+    function currentProject() {
+      return store.projects.find((project) => project.id === store.currentProjectId) || store.projects[0];
+    }
+
+    function hydrateFromProject(project) {
+      project.data = enrichActionBlocks(project.data || {});
+      Object.assign(state, defaults, project.data || {});
+      syncInputs();
+      render();
+      renderProjectPicker();
+      renderLedger();
+      refreshWarnings();
+    }
+
+    function syncProjectFromState() {
+      const project = currentProject();
+      fieldKeys.forEach((key) => {
+        project.data[key] = state[key] || "";
+      });
+      project.data = enrichActionBlocks(project.data);
+      project.updatedAt = new Date().toISOString();
+    }
+
+    function renderProjectPicker() {
+      const selected = store.currentProjectId;
+      picker.innerHTML = "";
+      store.projects.forEach((project) => {
+        const option = document.createElement("option");
+        option.value = project.id;
+        option.textContent = `${project.data.projectName || "未命名项目"} · ${project.data.goalType || "未分类"}`;
+        option.selected = project.id === selected;
+        picker.appendChild(option);
+      });
+    }
+
+    function parseLines(text) {
+      return normalizeText(text)
+        .split(/\n+/)
+        .map((line) => line.replace(/^[-*]\s*/, "").trim())
+        .filter(Boolean);
+    }
+
+    function normalizeText(text) {
+      return (text || "").replace(/\\n/g, "\n");
+    }
+
+    function renderList(id, text) {
+      const root = document.getElementById(id);
+      root.innerHTML = "";
+      const items = parseLines(text);
+      if (!items.length) {
+        const empty = document.createElement("div");
+        empty.className = "item";
+        empty.textContent = "待补充";
+        root.appendChild(empty);
+        return;
+      }
+      items.forEach((entry) => {
+        const item = document.createElement("div");
+        item.className = "item";
+        item.textContent = entry;
+        root.appendChild(item);
+      });
+    }
+
+    function renderActionBlocks(id, text) {
+      const root = document.getElementById(id);
+      root.innerHTML = "";
+      const normalized = normalizeText(text);
+      const blocks = normalized
+        .split(/\n\s*\n+/)
+        .map((block) => block.trim())
+        .filter(Boolean);
+
+      if (!blocks.length) {
+        const empty = document.createElement("div");
+        empty.className = "item";
+        empty.textContent = "待补充";
+        root.appendChild(empty);
+        return;
+      }
+
+      blocks.forEach((block) => {
+        const item = document.createElement("div");
+        item.className = "item";
+        item.textContent = block;
+        root.appendChild(item);
+      });
+    }
+
+    function renderText(id, value) {
+      const node = document.getElementById(id);
+      node.textContent = normalizeText(value) || "待补充";
+    }
+
+    function summarize(text) {
+      const clean = normalizeText(text).replace(/\n+/g, " ").trim();
+      return clean || "待补充";
+    }
+
+    function objectiveLooksSplit(text) {
+      const target = (text || "").trim();
+      if (!target) return false;
+      const separators = ["；", ";", "以及", "同时", "并且", "一边", "又要", "还要"];
+      return separators.some((token) => target.includes(token));
+    }
+
+    function refreshWarnings() {
+      const factFields = [state.backgroundFacts, state.objectiveFacts, state.latestProgress]
+        .map((value) => (value || "").trim())
+        .filter(Boolean);
+      const factCount = factFields.join(" ").length;
+      const warnings = [];
+
+      if (objectiveLooksSplit(state.objective)) {
+        warnings.push("主目标里像是混入了多个目标，建议拆成多个项目或明确哪一个是主战线。");
+      }
+
+      if (factCount < 60) {
+        warnings.push("背景和客观事实偏少，当前更适合输出假设版路线，而不是高确定性判断。");
+      }
+
+      if (!state.latestProgress || state.latestProgress.trim().length < 12) {
+        warnings.push("最新进展较少，续写旧项目时建议补充这次相对上次发生了什么变化。");
+      }
+
+      factWarning.textContent = warnings.length
+        ? `提示：${warnings.join(" ")}`
+        : "提示：背景、客观事实和最新进展较完整，可以支撑更高质量的路线判断与台账续写。";
+    }
+
+    function renderLedger() {
+      const root = document.getElementById("ledgerList");
+      root.innerHTML = "";
+      const project = currentProject();
+      if (!project.ledgerEntries.length) {
+        const empty = document.createElement("div");
+        empty.className = "ledger-entry";
+        empty.innerHTML = '<div class="ledger-time">暂无台账记录</div><div>点击“记录本次进展”后，这里会保留每次续写旧项目的演变过程。</div>';
+        root.appendChild(empty);
+        return;
+      }
+
+      [...project.ledgerEntries].reverse().forEach((entry) => {
+        const node = document.createElement("div");
+        node.className = "ledger-entry";
+        node.innerHTML = `
+          <div class="ledger-time">${entry.time}</div>
+          <div><strong>最新进展：</strong>${entry.latestProgress || "待补充"}</div>
+          <div><strong>最新判断：</strong>${entry.latestJudgment || "待补充"}</div>
+          <div><strong>旧判断修正：</strong>${entry.oldAssumptionsToFix || "待补充"}</div>
+          <div><strong>当前抓手：</strong>${entry.focusPoint || "待补充"}</div>
+          <div><strong>备注：</strong>${entry.ledgerNote || "待补充"}</div>
+        `;
+        root.appendChild(node);
+      });
+    }
+
+    function render() {
+      renderText("viewObjective", state.objective);
+      renderText("viewProjectName", state.projectName);
+      renderText("viewGoalType", state.goalType);
+      renderText("viewRoutePreference", state.routePreference);
+      renderText("viewStage", state.stage);
+      renderText("viewTimeScale", state.timeScale);
+      renderText("viewPrimaryContradiction", state.primaryContradiction);
+      renderText("viewFocusPoint", state.focusPoint);
+      renderText("viewBackgroundFacts", state.backgroundFacts);
+      renderText("viewObjectiveFacts", state.objectiveFacts);
+      renderText("viewLatestProgress", state.latestProgress);
+      renderText("viewLedgerNote", state.ledgerNote);
+      renderText("viewRouteSteady", state.routeSteady);
+      renderText("viewRouteBreakthrough", state.routeBreakthrough);
+      renderText("viewRouteDefensive", state.routeDefensive);
+      renderText("viewYear1", state.year1);
+      renderText("viewYear2", state.year2);
+      renderText("viewYear3", state.year3);
+      renderText("viewYear4", state.year4);
+      renderText("viewYear5", state.year5);
+      renderText("viewLatestJudgment", state.latestJudgment);
+      renderText("viewObjectiveSummary", summarize(`${state.objectiveTrend} ${state.objectiveResources} ${state.objectiveConstraints}`));
+      renderText("viewSubjectiveSummary", summarize(`${state.subjectiveJudgment} ${state.subjectiveExecution}`));
+
+      document.getElementById("objectiveScore").textContent = [
+        state.objectiveTrend,
+        state.objectiveResources,
+        state.objectiveConstraints
+      ].filter((x) => x && x.trim()).length + " / 3";
+
+      document.getElementById("subjectiveScore").textContent = [
+        state.subjectiveJudgment,
+        state.subjectiveExecution
+      ].filter((x) => x && x.trim()).length + " / 2";
+
+      const actionTargets = ["actions7d", "actions30d", "actions90d"];
+      listTargets.filter((key) => !actionTargets.includes(key)).forEach((key) => {
+        const viewId = "view" + key.charAt(0).toUpperCase() + key.slice(1);
+        renderList(viewId, state[key]);
+      });
+
+      actionTargets.forEach((key) => {
+        const viewId = "view" + key.charAt(0).toUpperCase() + key.slice(1);
+        renderActionBlocks(viewId, state[key]);
+      });
+    }
+
+    function syncInputs() {
+      inputs.forEach((input) => {
+        const key = input.dataset.key;
+        input.value = state[key] || "";
+      });
+    }
+
+    function snapshot() {
+      syncProjectFromState();
+      const project = currentProject();
+      project.ledgerEntries.push({
+        time: new Date().toLocaleString("zh-CN"),
+        latestProgress: state.latestProgress,
+        latestJudgment: state.latestJudgment,
+        oldAssumptionsToFix: state.oldAssumptionsToFix,
+        focusPoint: state.focusPoint,
+        ledgerNote: state.ledgerNote
+      });
+      saveStore("状态：已记录台账");
+      renderLedger();
+    }
+
+    picker.addEventListener("change", () => {
+      store.currentProjectId = picker.value;
+      hydrateFromProject(currentProject());
+      saveStore("状态：已切换项目");
+    });
+
+    inputs.forEach((input) => {
+      input.addEventListener("input", () => {
+        state[input.dataset.key] = input.value;
+        render();
+        refreshWarnings();
+      });
+    });
+
+    document.getElementById("newProjectBtn").addEventListener("click", () => {
+      const baseName = state.projectName && state.projectName !== "默认项目" ? `${state.projectName}-续案` : "新项目";
+      const project = createProject({ projectName: baseName });
+      store.projects.push(project);
+      store.currentProjectId = project.id;
+      hydrateFromProject(project);
+      saveStore("状态：已新建项目");
+    });
+
+    document.getElementById("saveProjectBtn").addEventListener("click", () => {
+      syncProjectFromState();
+      saveStore("状态：已保存项目");
+      renderProjectPicker();
+    });
+
+    document.getElementById("saveBtn").addEventListener("click", () => {
+      syncProjectFromState();
+      saveStore("状态：已保存当前项目");
+      renderProjectPicker();
+    });
+
+    document.getElementById("snapshotBtn").addEventListener("click", snapshot);
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      Object.assign(state, defaults, {
+        projectName: state.projectName || defaults.projectName,
+        goalType: state.goalType || defaults.goalType,
+        routePreference: state.routePreference || defaults.routePreference
+      });
+      syncInputs();
+      render();
+      refreshWarnings();
+      statusText.textContent = "状态：已重置当前项目内容";
+    });
+
+    document.getElementById("exportBtn").addEventListener("click", () => {
+      syncProjectFromState();
+      const project = currentProject();
+      const safeName = (project.data.projectName || "maoxuan-project").replace(/[^\w\u4e00-\u9fa5-]+/g, "-");
+      const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${safeName}.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      statusText.textContent = "状态：已导出当前项目 JSON";
+    });
+
+    hydrateFromProject(currentProject());
+    statusText.textContent = "状态：已从本地恢复项目";
+  </script>
+</body>
+</html>

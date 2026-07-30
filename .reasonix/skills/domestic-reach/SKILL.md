@@ -1,0 +1,82 @@
+---
+name: domestic-reach
+description: 国内多平台选题采集 — 整合 hotnews-mcp + 小红书抓取，输出国内市场热门选题报告
+runAs: subagent
+allowed-tools: [mcp__hotnews-mcp__fetch_platform, mcp__hotnews-mcp__list_hotspots, web_fetch, read_file, grep]
+---
+
+# domestic-reach — 国内多平台选题采集技能
+
+## 概述
+国内市场内容选题采集技能。当用户需要了解国内热点/趋势/选题时，使用此技能代替 agent-reach。
+数据源全部来自国内平台，不依赖墙外搜索引擎。
+
+## 数据源配置
+
+### 一级数据源（hotnews-mcp，结构化数据）
+优先使用以下国内平台（按数据质量排序）：
+1. **B站** — 数据最完整（标题+热度值+链接），`mcp__hotnews-mcp__fetch_platform(platform="bilibili", limit=20)`
+2. **百度** — 实时热搜，含标签（沸/热/置顶），`mcp__hotnews-mcp__fetch_platform(platform="baidu", limit=20)`
+3. **知乎** — 热榜，缺热度数值但排名准确，`mcp__hotnews-mcp__fetch_platform(platform="zhihu", limit=20)`
+4. **抖音** — 热点，数据量有限（约5条），`mcp__hotnews-mcp__fetch_platform(platform="douyin", limit=20)`
+5. **豆瓣** — 影视/文化热榜，`mcp__hotnews-mcp__fetch_platform(platform="douban", limit=10)`
+
+### 二级数据源（web_fetch 抓取）
+6. **小红书** — `web_fetch(url="https://www.xiaohongshu.com/explore")` 获取探索页热门推荐内容（标题+点赞数+作者）
+7. 如需小红书搜索：`web_fetch(url="https://www.xiaohongshu.com/search_result?keyword={关键词}&type=1")`
+
+### 已知不可用
+- **微博** — hotnews-mcp 的微博数据源当前返回空数据（反爬拦截），在报告中标注"微博数据暂不可用"
+- **抖音** — web_fetch 返回空 body，仅用 hotnews-mcp 数据
+
+## 采集逻辑
+
+1. **接收用户需求**：分析用户的领域/关键词/内容类型需求
+2. **并行采集**：同时调用所有可用数据源
+3. **去重聚合**：跨平台合并相似话题，标注各平台热度
+4. **输出报告**：按热度/领域/平台分类呈现
+
+## 输出格式
+
+返回 Markdown 格式的热点选题报告，结构如下：
+
+```
+## 📊 国内热点选题报告
+
+### 📅 采集时间：{当前时间}
+
+### 🏆 跨平台热门 TOP 10
+1. [话题名] — 百度(热🔥) 知乎(3) B站(103万)
+   → 话题简介/切入角度
+
+### 🎯 按领域分类
+- 科技/互联网: ...
+- 社会/民生: ...
+- 娱乐/文化: ...
+- 生活/消费: ...
+
+### 📱 各平台详细榜单
+#### B站热搜
+#### 百度热搜
+#### 知乎热榜
+#### 小红书热门
+
+### 💡 选题建议
+- 基于热点趋势的选题方向
+- 适合不同平台的内容形式建议
+
+### ⚠️ 数据状态
+- ✅ B站: 正常
+- ✅ 百度: 正常
+- ✅ 知乎: 正常
+- ⚠️ 抖音: 部分可用
+- ✅ 小红书: 探索页数据
+- ✅ 豆瓣: 正常
+- ❌ 微博: 暂不可用
+```
+
+## 注意事项
+- 小红书反爬严格，探索页数据仅为当前推荐内容，并非严格热搜排名
+- 抖音数据量有限，仅作为参考
+- 标记"微博数据暂不可用"让用户知晓
+- 如用户需要特定领域（科技/时尚/财经等），在采集时优先筛选相关话题

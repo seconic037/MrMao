@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI店长 · 产品架构与决策框架</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; background: #f5f3ef; color: #2c3e50; line-height: 1.7; }
+  .wrap { max-width: 800px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1 { font-size: 26px; color: #c0392b; margin-bottom: 4px; }
+  .sub { color: #7f8c8d; font-size: 13px; margin-bottom: 32px; }
+
+  .principle { text-align: center; padding: 20px; border-top: 2px solid #c0392b; border-bottom: 2px solid #c0392b; margin: 28px 0; font-size: 16px; font-weight: 700; color: #c0392b; }
+
+  h2 { font-size: 20px; margin: 36px 0 12px; color: #1a1a2e; border-bottom: 1px solid #e0ddd7; padding-bottom: 6px; }
+
+  /* 双层架构图 */
+  .arch { margin: 20px 0; }
+  .arch-layer { border-radius: 12px; padding: 24px 28px; margin-bottom: 12px; }
+  .arch-layer.core { background: #1a1a2e; color: #ddd; border: 2px solid #c0392b; }
+  .arch-layer.core h3 { color: #e74c3c; font-size: 16px; margin-bottom: 4px; }
+  .arch-layer.core .subtitle { color: #888; font-size: 12px; margin-bottom: 16px; }
+
+  .arch-layer.adapt { background: #fff; border: 2px dashed #e0ddd7; }
+  .arch-layer.adapt h3 { color: #2980b9; font-size: 16px; margin-bottom: 4px; }
+  .arch-layer.adapt .subtitle { color: #999; font-size: 12px; margin-bottom: 16px; }
+
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .arch-item { background: rgba(255,255,255,0.06); border-radius: 8px; padding: 14px 16px; }
+  .arch-layer.adapt .arch-item { background: #f9f7f4; }
+  .arch-item .label { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .core .arch-item .label { color: #ff6b6b; }
+  .adapt .arch-item .label { color: #2980b9; }
+  .arch-item .desc { font-size: 12px; color: #aaa; }
+  .adapt .arch-item .desc { color: #888; }
+
+  .arrow-down { text-align: center; font-size: 24px; color: #c0392b; margin: 4px 0; font-weight: 700; }
+
+  /* 决策树 */
+  .decision-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 12px 0; }
+  .decision-table th { text-align: left; padding: 10px 8px; border-bottom: 2px solid #c0392b; font-size: 12px; color: #7f8c8d; }
+  .decision-table td { padding: 10px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+  .decision-table tr td:first-child { font-weight: 700; min-width: 120px; }
+  .rule-core { color: #e74c3c; font-weight: 700; }
+  .rule-adapt { color: #2980b9; }
+
+  /* 服务标准 */
+  .standard-card { background: #fff; border-radius: 10px; padding: 20px 24px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border-left: 4px solid #c0392b; }
+  .standard-card h4 { font-size: 15px; margin-bottom: 6px; }
+  .standard-card p { font-size: 13px; color: #555; }
+
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .tag-red { background: #fdecea; color: #c0392b; }
+  .tag-blue { background: #e8f4fd; color: #2980b9; }
+
+  .note { background: #fff5f4; border-radius: 8px; padding: 16px 20px; margin: 20px 0; font-size: 13px; border: 1px solid #f5c6cb; }
+
+  hr { border: none; border-top: 1px solid #e0ddd7; margin: 36px 0; }
+
+  @media (max-width: 640px) {
+    .arch-grid { grid-template-columns: 1fr; }
+    .wrap { padding: 24px 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>AI店长 · 产品架构与决策框架</h1>
+<p class="sub">什么不能动 · 什么可以改 · 怎么判断</p>
+
+<div class="principle">
+  核心原则：能改的是客户要的功能，不能改的是服务客户的标准。
+</div>
+
+<!-- ── 双层架构 ── -->
+<h2>一、双层架构：核心引擎层 + 适配层</h2>
+
+<div class="arch">
+  <!-- 适配层 -->
+  <div class="arch-layer adapt">
+    <h3>🔧 适配层 — 可以改，按客户需求定制</h3>
+    <p class="subtitle">每个门店接入时根据实际情况调整。不改核心逻辑，只改表现和对接方式。</p>
+    <div class="arch-grid">
+      <div class="arch-item">
+        <div class="label">📋 课表数据格式</div>
+        <div class="desc">Excel / 飞书 / API / 手动录入 — 什么格式进来都行，统一处理后入库</div>
+      </div>
+      <div class="arch-item">
+        <div class="label">📱 企微菜单配置</div>
+        <div class="desc">每家店的快捷菜单可以不同。A 馆主打约课、B 馆主打素材</div>
+      </div>
+      <div class="arch-item">
+        <div class="label">🏷️ 课程命名体系</div>
+        <div class="desc">空中瑜伽 / Aerial Yoga / 反重力 — 客户叫什么，系统就认什么</div>
+      </div>
+      <div class="arch-item">
+        <div class="label">👤 教练权限分级</div>
+        <div class="desc">哪些教练能看客户数据、哪些只能发素材 — 馆主自己定</div>
+      </div>
+      <div class="arch-item">
+        <div class="label">📊 看板指标选择</div>
+        <div class="desc">重点看满课率还是续费率还是新客转化 — 馆主自己选</div>
+      </div>
+      <div class="arch-item">
+        <div class="label">💬 话术风格</div>
+        <div class="desc">正式/活泼/佛系 — AI 的文案风格可配置</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">▼ 适配层依赖核心引擎 ▼</div>
+
+  <!-- 核心引擎层 -->
+  <div class="arch-layer core">
+    <h3>🏛️ 核心引擎层 — 不能动，动了就不是 AI店长 了</h3>
+    <p class="subtitle">这是产品的骨架。改了其中任何一项，整个系统的逻辑就崩了。</p>
+    <div class="arch-grid">
+      <div class="arch-item">
+        <div class="label">🔄 数据飞轮逻辑</div>
+        <div class="desc">门店数据 → AI分析 → 对内管理+对外获客 → 新数据 → 飞轮再转。这是产品的基因，不可替换</div>
+      </div>
+      <div class="arch-item">
+        <div class="label">📐 开源+节流双引擎</div>
+        <div class="desc">所有功能必须同时服务"增收"和"降本"两端。不能偏废。只开源不节流的工具不是AI店长</div>
+      </div>
+      <div class="arch-item">
+        <div class="label">🔗 教练-店长-学员三端闭环</div>
+        <div class="desc">教练操作→店长可见→学员受益。任何一端断开，闭环失效</div>
+      </div>
+      <div class="arch-item">
+        <div class="label">🧠 决策日志机制</div>
+        <div class="desc">每次AI操作（约课/推送/生成）都记录决策过程。可追溯、可复盘、可优化。这是"越用越聪明"的基础</div>
+      </div>
+      <div class="arch-item">
+        <div class="label">⚡ 消息驱动架构</div>
+        <div class="desc">教练发一条消息触发整个流程链。不是"教练点按钮→系统执行"—是"教练说话→系统理解→系统执行"</div>
+      </div>
+      <div class="arch-item">
+        <div class="label">📊 飞轮数据闭环</div>
+        <div class="desc">每一次内容发布、每一次客户触达、每一次约课行为都流回数据池，成为下一轮AI分析的输入</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 二、决策树 ── -->
+<h2>二、决策框架：遇到客户需求怎么判断</h2>
+
+<table class="decision-table">
+  <thead>
+    <tr><th>场景</th><th>处理方式</th><th>归属层</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>"我们的课不叫普拉提，叫核心床"</td>
+      <td><span class="rule-adapt">适配层</span> — 加一个课程名称映射</td>
+      <td>可改</td>
+    </tr>
+    <tr>
+      <td>"能不能不通过企微，改短信通知学员"</td>
+      <td><span class="rule-core">核心引擎</span> — 拒绝。消息驱动架构不可替换。企微是教练入口，改了入口整个产品逻辑要重做</td>
+      <td>不能改</td>
+    </tr>
+    <tr>
+      <td>"我们想加一个员工考勤打卡"</td>
+      <td><span class="rule-adapt">适配层</span> — 可以加，但要判断是否服务"开源节流"。如果不服务，建议客户用其他工具</td>
+      <td>可讨论</td>
+    </tr>
+    <tr>
+      <td>"能不能只给我素材生成，不要约课"</td>
+      <td><span class="rule-core">核心引擎</span> — 拒绝。只给素材就断了闭环，数据回不来，飞轮不转。这不是功能取舍，是产品逻辑取舍</td>
+      <td>不能改</td>
+    </tr>
+    <tr>
+      <td>"我们的教练用英文名，不是中文名"</td>
+      <td><span class="rule-adapt">适配层</span> — 改配置即可</td>
+      <td>可改</td>
+    </tr>
+    <tr>
+      <td>"能不能直接帮学员自动续费扣款"</td>
+      <td><span class="rule-core">核心引擎</span> — 不能。涉及资金操作且不可逆，不在产品边界内。系统提醒人做决策，不是替人做决策</td>
+      <td>不能改</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>判断口诀：</strong>动了数据飞轮 → 不能改。动了消息入口 → 不能改。动了教练-店长-学员闭环 → 不能改。<br>
+  改的是表现形式、数据格式、对接方式 → 都可以改。
+</div>
+
+<!-- ── 三、服务标准 ── -->
+<h2>三、五条服务标准</h2>
+<p style="color:#7f8c8d;font-size:13px;margin-bottom:16px;">不管多少家客户、不管定制多复杂，以下五条不因客户规模、付费金额、关系远近而改变。</p>
+
+<div class="standard-card">
+  <h4><span class="tag tag-red">标准 1</span> 数据归门店，不归AI店长</h4>
+  <p>任何一家门店的课表、客户、经营数据，所有权都是门店的。AI店长只是读取和分析。门店退出时数据可完整导出。不用我们的系统了，数据还是你的。</p>
+</div>
+
+<div class="standard-card">
+  <h4><span class="tag tag-red">标准 2</span> AI建议，人做决策</h4>
+  <p>系统可以做排课建议、续费提醒、素材生成，但最终拍板的永远是人。我们不做自动扣款、不做自动群发、不做"AI替你决定"。</p>
+</div>
+
+<div class="standard-card">
+  <h4><span class="tag tag-red">标准 3</span> 24小时内响应</h4>
+  <p>任何客户反馈——bug、功能需求、建议——24小时内有回复。解决时间看复杂度，但至少让对方知道"听到了、在处理"。</p>
+</div>
+
+<div class="standard-card">
+  <h4><span class="tag tag-red">标准 4</span> 不卖功能，只解决经营问题</h4>
+  <p>客户说"我要加一个XX功能"时，先问"你想解决什么经营问题"。如果XX功能不服务开源节流，我们会建议更好的方式。不是客户要什么都做。</p>
+</div>
+
+<div class="standard-card">
+  <h4><span class="tag tag-red">标准 5</span> 每个迭代必须有客户声音</h4>
+  <p>任何新功能上线前，至少有一家真实门店确认"我需要这个"。不做拍脑袋的功能。不做"我觉得好但没人要"的功能。</p>
+</div>
+
+<hr>
+
+<h2>四、一句话总结这个框架</h2>
+
+<div class="principle">
+  核心引擎是产品的心脏，适配层是产品的皮肤。<br>
+  心脏不换，皮肤可以换。标准不变，做法可以变。<br>
+  <br>
+  动心脏的不是定制，是另一个产品。动标准的不是灵活，是妥协。
+</div>
+
+<div style="text-align:center;font-size:12px;color:#aaa;margin-top:36px;">
+  AI店长 · 产品架构与决策框架 · 2026年7月<br>
+  为平台合作与投资决策准备
+</div>
+
+</div>
+</body>
+</html>
