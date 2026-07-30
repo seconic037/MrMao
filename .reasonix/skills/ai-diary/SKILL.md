@@ -54,6 +54,44 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 ### 联动
 - `/diary publish` 和 `/diary today` 执行时可调用 domestic-reach 技能辅助判断话题热度
 
+## 日记条目结构
+
+每条日记包含以下字段，存入 `diary/YYYY-MM-DD.md`：
+
+```markdown
+# 2026-07-31 日记
+
+## 📋 任务摘要
+[一句话描述今天让AI做了什么]
+
+## 🛠 工具调用
+- [MCP/技能名]：[用途说明]
+
+## 📦 关键产出
+- [产出描述]
+
+## 💬 AI评价
+[从AI视角看这件事的价值/有趣之处]
+
+## 📱 适合平台
+- 小红书 ✅/❌
+- B站 ✅/❌
+- 公众号 ✅/❌
+```
+
+## 自动记录机制
+
+当对话结束时，技能自动执行以下步骤：
+1. 回顾本次会话中的任务、工具调用和产出
+2. 提取关键信息填入日记条目模板
+3. 追加写入 `diary/YYYY-MM-DD.md`
+4. 如果当日文件已存在，追加新条目而非覆盖
+
+### 触发时机
+- 用户主动调用 `/diary` 系列命令时
+- 整合进「下班」指令时（通过 `/diary endday`）
+- 用户明确要求"记录一下"时
+
 ## 参考
 - 设计规格：`docs/superpowers/specs/2026-07-31-ai-diary-media-design.md`
 - 实现计划：`docs/superpowers/plans/2026-07-31-ai-diary-media.md`
