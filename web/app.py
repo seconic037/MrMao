@@ -323,6 +323,21 @@ async def set_title(filename: str = "", title: str = ""):
     _save_titles()
     return {"ok": True}
 
+@app.post("/api/session/summarize")
+async def summarize_log(filename: str = ""):
+    """一键总结指定日志文件的对话内容。"""
+    if not llm: raise HTTPException(503, "LLM 未配置")
+    path = LOG_DIR / filename
+    if not path.exists() or "session_" not in filename:
+        raise HTTPException(404, "文件不存在")
+    content = path.read_text(encoding="utf-8")
+    resp = llm.chat.completions.create(
+        model=LLM_MODEL,
+        messages=[{"role": "user", "content": f"用一段话（不超过200字）总结以下对话内容：\n{content[:4000]}"}],
+        max_tokens=300, temperature=0.5
+    )
+    return {"summary": resp.choices[0].message.content.strip(), "filename": filename}
+
 @app.get("/api/catalog")
 async def catalog():
     """分级著作目录。"""

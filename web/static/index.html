@@ -27,6 +27,9 @@
                 <h3>💬 试试这些</h3>
                 <div class="topic-list" id="topicList"></div>
             </div>
+            <div class="home-links">
+                <span onclick="openLogs()">📋 聊天日志</span>
+            </div>
         </div>
 
         <!-- 聊天页 -->
@@ -37,6 +40,7 @@
                 <button onclick="doCompact()">🍵 续茶</button>
                 <button onclick="doCompact()">🚬 递烟</button>
             </div>
+            <div class="chat-links"><span onclick="openLogs()">📋 聊天日志</span></div>
             <div class="chat-messages" id="chat"></div>
             <div class="chat-input">
                 <textarea id="msg" placeholder="随便问点什么..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
@@ -75,9 +79,6 @@
         </div>
         <div class="tab" onclick="switchTab('read')" id="tab-read">
             <span class="tab-icon">📚</span><span class="tab-label">阅读</span>
-        </div>
-        <div class="tab" onclick="switchTab('logs')" id="tab-logs">
-            <span class="tab-icon">📋</span><span class="tab-label">记录</span>
         </div>
     </nav>
 </div>

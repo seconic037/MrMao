@@ -7,7 +7,6 @@ function switchTab(name){
     document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
     document.getElementById('page-'+name).classList.add('active');
     document.getElementById('tab-'+name).classList.add('active');
-    if(name==='logs')loadLogs();
     if(name==='read')loadCatalogView();
     if(name!=='chat'&&currentPage==='chat')askSaveLog();
     currentPage=name;
@@ -75,31 +74,58 @@ async function showIdleAction(){
 }
 function refreshIdleAction(){if(idleEl)idleEl.remove();showIdleAction();}
 
-// ── 记录页 ──────────────────────────────────
-async function loadLogs(){try{const r=await fetch('/api/logs');logData=await r.json();showCurrentLog()}catch(e){}}
-function showCurrentLog(){
-    const el=document.getElementById('logBody');if(!logData?.entries){el.innerHTML='<div class="log-loading">暂无记录</div>';return}
+// ── 记录 ──────────────────────────────────
+let logData=null;
+async function openLogs(){
+    const panel=document.getElementById('logPanel');panel.style.display='block';
+    panel.innerHTML='<div class="log-loading">加载中...</div>';
+    try{const r=await fetch('/api/logs');logData=await r.json();renderLogPanel()}catch(e){panel.innerHTML='<div class="log-loading">加载失败</div>'}
+}
+function closeLogs(){document.getElementById('logPanel').style.display='none'}
+function renderLogPanel(){
+    const panel=document.getElementById('logPanel');
+    let html='<div class="log-header">📋 聊天日志 <span onclick="closeLogs()" style="cursor:pointer;float:right">✕</span></div>';
+    html+='<div class="log-tabs"><span class="log-tab active" onclick="showCurrentLogTab()">当前会话</span><span class="log-tab" onclick="showHistoryLogs()">历史记录</span></div>';
+    html+='<div class="log-body" id="logBody"></div>';
+    panel.innerHTML=html;showCurrentLogTab();
+}
+function showCurrentLogTab(){
+    const el=document.getElementById('logBody');if(!logData?.entries?.length){el.innerHTML='<div class="log-loading">暂无记录</div>';return}
     el.innerHTML=logData.entries.map(e=>`<div class="log-entry"><b>${e.role==='chairman'?'主席':'你'}：</b>${e.content}</div>`).join('');
-    document.querySelectorAll('#page-logs .log-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
+    if(logData.active_rounds>0)el.innerHTML+='<div class="log-actions"><button onclick="summarizeCurrent()">🤖 一键总结</button></div>';
+    document.querySelectorAll('#logPanel .log-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
 }
 function showHistoryLogs(){
     const el=document.getElementById('logBody');if(!logData?.sessions){el.innerHTML='<div class="log-loading">暂无记录</div>';return}
     el.innerHTML=logData.sessions.map(s=>{
         const label=s.title||(s.time?s.time.substring(5,16):s.name);
-        const rounds=s.rounds||s.name.match(/\d+/)||'';
         return `<div class="log-session-item">
-            <span class="log-title" onclick="editTitle('${s.name}','${(s.title||'').replace(/'/g,"\\'")}')">📄 ${label} · ${rounds}条</span>
-            <span class="log-del" onclick="deleteLog('${s.name}')">🗑</span>
+            <span class="log-title" onclick="editTitle('${s.name}','${(s.title||'').replace(/'/g,"\\'")}')">📄 ${label} · ${s.rounds||'?'}条</span>
+            <span class="log-acts"><span onclick="summarizeLog('${s.name}')" style="color:var(--primary);cursor:pointer;margin-right:8px" title="一键总结">🤖</span><span class="log-del" onclick="deleteLogWithConfirm('${s.name}')">🗑</span></span>
         </div>`
     }).join('');
-    document.querySelectorAll('#page-logs .log-tab').forEach((t,i)=>t.classList.toggle('active',i===1));
+    document.querySelectorAll('#logPanel .log-tab').forEach((t,i)=>t.classList.toggle('active',i===1));
+}
+async function deleteLogWithConfirm(filename){
+    if(!confirm('确定删除这条日志？此操作不可恢复。'))return;
+    try{await fetch(`/api/logs/${filename}`,{method:'DELETE'});const r=await fetch('/api/logs');logData=await r.json();showHistoryLogs()}catch(e){}
+}
+async function summarizeCurrent(){
+    if(!logData?.current)return;
+    const el=document.getElementById('logBody');el.innerHTML+='<div class="log-loading">总结中...</div>';
+    try{const r=await fetch(`/api/session/summarize?filename=${encodeURIComponent(logData.current)}`,{method:'POST'});const d=await r.json();
+        el.innerHTML+='<div class="log-summary"><b>🤖 AI 总结：</b><br>'+d.summary+'</div>'}catch(e){}
+}
+async function summarizeLog(filename){
+    const el=document.getElementById('logBody');el.innerHTML+='<div class="log-loading">总结中...</div>';
+    try{const r=await fetch(`/api/session/summarize?filename=${encodeURIComponent(filename)}`,{method:'POST'});const d=await r.json();
+        el.innerHTML+='<div class="log-summary"><b>🤖 AI 总结：</b><br>'+d.summary+'</div>'}catch(e){}
 }
 async function editTitle(filename,currentTitle){
     const t=prompt('编辑日志标题：',currentTitle||'');
     if(t===null)return;
-    try{await fetch(`/api/session/title?filename=${encodeURIComponent(filename)}&title=${encodeURIComponent(t)}`,{method:'POST'});loadLogs()}catch(e){}
-}
-async function deleteLog(name){if(!confirm('删除这条记录？'))return;try{await fetch(`/api/logs/${name}`,{method:'DELETE'});showHistoryLogs()}catch(e){}}
+    try{await fetch(`/api/session/title?filename=${encodeURIComponent(filename)}&title=${encodeURIComponent(t)}`,{method:'POST'});const r=await fetch('/api/logs');logData=await r.json();showHistoryLogs()}catch(e){}
+}}
 
 // ── 阅读页 ──────────────────────────────────
 async function loadCatalogView(){
