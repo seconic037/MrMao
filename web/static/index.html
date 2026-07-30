@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>毛选思维引擎</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+    <header class="header"><h1>📖 毛选思维引擎</h1><span id="status">● 就绪</span></header>
+    <main class="chat" id="chat">
+        <div class="welcome" id="welcome">
+            <h2>📚 毛选思维引擎</h2>
+            <p>基于毛泽东选集四卷（约100万字）+ 毛式方法论框架</p>
+            <p>引用原文 · 矛盾分析 · 实事求是 · 实践建议</p>
+            <div class="suggestions">
+                <button onclick="ask('什么是实事求是？')">什么是实事求是？</button>
+                <button onclick="ask('矛盾分析法如何应用？')">矛盾分析法如何应用？</button>
+                <button onclick="ask('调查研究的方法论是什么？')">调查研究的方法论</button>
+            </div>
+        </div>
+    </main>
+    <footer class="input-area">
+        <textarea id="msg" placeholder="输入问题..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
+        <button id="sendBtn" onclick="send()">发送</button>
+    </footer>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
