@@ -16,6 +16,7 @@ openai>=1.30.0
 
 # BM25 keyword search
 rank-bm25>=0.2.2
+jieba>=0.42.1
 
 # Env config
 python-dotenv>=1.0.0
