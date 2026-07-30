@@ -192,6 +192,68 @@ async def compact():
     session_memories = [summary] if summary else []
     return {"message": "主席精神了", "summary": summary, "fatigue": "green"}
 
+# ── 著作阅读 ──────────────────────────────────────────
+RANDOM_TOPICS = [
+    "怎么看待当前的国际形势？", "年轻人该如何选择人生道路？",
+    "学习到底该怎么学？", "失败了很多次怎么办？",
+    "什么样的人可以当领导？", "钱很重要吗？",
+    "文化自信到底是什么意思？", "遇到不公平的事该怎么做？",
+    "和平年代还需要斗争精神吗？", "理想和现实怎么平衡？",
+]
+
+@app.get("/api/catalog")
+async def catalog():
+    """分级著作目录。"""
+    import glob as _glob, re as _re
+    cats = [
+        {"name": "毛泽东选集", "id": "mx", "volumes": [
+            {"name": "第一卷 (1925-1937)", "id": "mx1", "count": 18},
+            {"name": "第二卷 (1937-1941)", "id": "mx2", "count": 40},
+            {"name": "第三卷 (1941-1945)", "id": "mx3", "count": 32},
+            {"name": "第四卷 (1945-1949)", "id": "mx4", "count": 70},
+        ]},
+        {"name": "毛泽东文集", "id": "wj", "volumes": [
+            {"name": "第五卷 (解放战争)", "id": "wj5", "count": 100},
+            {"name": "第六卷 (建国初期)", "id": "wj6", "count": 153},
+            {"name": "第七卷 (1956-1958)", "id": "wj7", "count": 38},
+        ]},
+        {"name": "毛泽东诗词", "id": "sc", "volumes": [{"name": "诗词全集", "id": "sc1", "count": 132}]},
+        {"name": "建国以来文稿", "id": "jw", "volumes": [{"name": "精选文稿", "id": "jw1", "count": 13}]},
+    ]
+    return {"catalog": cats, "topics": random.sample(RANDOM_TOPICS, 4)}
+
+@app.get("/api/read")
+async def read_article(source: str = "", title: str = ""):
+    """读取单篇著作原文。"""
+    import glob as _glob, json as _json
+    files = _glob.glob(f"data/extracted/**/*.json", recursive=True)
+    for f in files:
+        try:
+            with open(f, "r", encoding="utf-8") as fh:
+                art = _json.load(fh)
+            if source and source not in art.get("source", ""): continue
+            if title and title not in art.get("title", ""): continue
+            return {"title": art.get("title",""), "source": art.get("source",""),
+                    "date": art.get("date",""), "content": art.get("content","")[:10000]}
+        except: continue
+    return {"error": "未找到"}
+
+@app.get("/api/articles")
+async def list_articles(source: str = ""):
+    """列出某来源下的所有文章。"""
+    import glob as _glob, json as _json
+    articles = []
+    files = sorted(_glob.glob("data/extracted/**/*.json", recursive=True))
+    for f in files:
+        try:
+            with open(f, "r", encoding="utf-8") as fh:
+                art = _json.load(fh)
+            if source and source not in art.get("source", ""): continue
+            articles.append({"title": art.get("title",""), "date": art.get("date",""),
+                           "source": art.get("source",""), "chars": len(art.get("content",""))})
+        except: continue
+    return {"articles": articles, "count": len(articles)}
+
 @app.post("/api/chat", response_model=ChatResp)
 async def chat(req: ChatReq):
     global total_tokens, round_count, session_memories

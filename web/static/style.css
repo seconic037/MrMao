@@ -45,6 +45,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans
 .cover p{color:var(--text-light);font-size:16px;margin-bottom:4px}
 .cover-enter{background:var(--primary);color:#fff;border:none;padding:14px 40px;border-radius:30px;font-size:18px;cursor:pointer;margin-top:32px;transition:.2s}
 .cover-enter:hover{background:var(--primary-light);transform:scale(1.05)}
+.cover-section{margin-top:32px;text-align:left;max-width:400px;margin-left:auto;margin-right:auto}
+.cover-section h3{font-size:15px;color:var(--primary);margin-bottom:10px}
+.topic-list{display:flex;flex-wrap:wrap;gap:6px}
+.topic-item{background:#fff;border:1px solid var(--border);padding:6px 14px;border-radius:16px;font-size:13px;color:var(--text);cursor:pointer;transition:.2s}
+.topic-item:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.catalog-toggle{cursor:pointer;font-size:12px;color:var(--text-light);margin-left:8px}
+.catalog{font-size:13px}
+.cat-group{margin-bottom:10px}
+.cat-name{font-weight:600;color:var(--primary);cursor:pointer;padding:4px 0}
+.cat-name:hover{opacity:.7}
+.vol-list{display:none;margin-left:12px}
+.vol-list.open{display:block}
+.vol-item{padding:3px 0;color:var(--text-light);cursor:pointer;font-size:12px}
+.vol-item:hover{color:var(--primary)}
+.article-item{padding:2px 0 2px 12px;font-size:12px;color:var(--text-light);cursor:pointer;border-left:2px solid var(--border);margin:2px 0}
+.article-item:hover{color:var(--primary);border-left-color:var(--primary)}
+.reader{background:#fff;border-radius:12px;padding:16px;margin-top:12px;max-height:60vh;overflow-y:auto;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.reader-header{margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px}
+.reader-back{cursor:pointer;color:var(--primary);margin-right:12px}
+.reader-content{font-size:14px;line-height:2;white-space:pre-wrap}
 .stats-bar{text-align:center;padding:6px;background:rgba(139,0,0,.05);font-size:12px;color:var(--text-light);flex-shrink:0}
 .fatigue-bar{text-align:center;padding:4px;font-size:13px;flex-shrink:0;transition:all .5s}
 .fatigue-bar.green{background:#e8f5e9;color:#2e7d32}

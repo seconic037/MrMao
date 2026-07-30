@@ -187,3 +187,86 @@ fetch('/api/status').then(r => r.json()).then(s => {
     if (!s.rag) setStatus('RAG未就绪');
     if (!s.llm) setStatus('LLM未配置');
 });
+loadTopics();
+loadCatalog();
+
+// ── 首页话题 ──────────────────────────────────
+async function loadTopics() {
+    try {
+        const r = await fetch('/api/catalog');
+        const d = await r.json();
+        const el = document.getElementById('topicList');
+        if (!el || !d.topics) return;
+        el.innerHTML = d.topics.map(t => 
+            `<span class="topic-item" onclick="enterChat();setTimeout(()=>{document.getElementById('msg').value='${t}';send()},200)">${t}</span>`
+        ).join('');
+    } catch(e) {}
+}
+
+// ── 著作目录 ──────────────────────────────────
+let catalogData = null;
+async function loadCatalog() {
+    try {
+        const r = await fetch('/api/catalog');
+        const d = await r.json();
+        catalogData = d.catalog;
+    } catch(e) {}
+}
+
+function toggleCatalog() {
+    const el = document.getElementById('catalog');
+    const tog = document.querySelector('.catalog-toggle');
+    if (el.style.display === 'block') {
+        el.style.display = 'none'; tog.textContent = '展开';
+        return;
+    }
+    if (!catalogData) { loadCatalog(); return; }
+    let html = '';
+    catalogData.forEach(cat => {
+        html += `<div class="cat-group"><div class="cat-name" onclick="toggleVol(this)">📁 ${cat.name}</div><div class="vol-list">`;
+        cat.volumes.forEach(vol => {
+            html += `<div class="vol-item" onclick="loadArticleList('${vol.id}')">📄 ${vol.name} (${vol.count}篇)</div>`;
+        });
+        html += '</div></div>';
+    });
+    el.innerHTML = html;
+    el.style.display = 'block';
+    tog.textContent = '收起';
+}
+
+function toggleVol(el) {
+    const list = el.nextElementSibling;
+    list.classList.toggle('open');
+}
+
+async function loadArticleList(volId) {
+    const map = {mx1:'毛选第一卷',mx2:'毛选第二卷',mx3:'毛选第三卷',mx4:'毛选第四卷',
+                 wj5:'毛泽东文集第五卷',wj6:'毛泽东文集第六卷',wj7:'毛泽东文集第七卷',
+                 sc1:'毛泽东诗词',jw1:'建国以来毛泽东文稿'};
+    try {
+        const r = await fetch(`/api/articles?source=${encodeURIComponent(map[volId]||'')}`);
+        const d = await r.json();
+        const el = document.getElementById('catalog');
+        let html = '<div class="reader-back" onclick="toggleCatalog()">← 返回目录</div>';
+        d.articles.forEach(a => {
+            html += `<div class="article-item" onclick="readArticle('${encodeURIComponent(a.source)}','${encodeURIComponent(a.title)}')">${a.title} (${a.date})</div>`;
+        });
+        el.innerHTML = html;
+    } catch(e) {}
+}
+
+async function readArticle(source, title) {
+    try {
+        const r = await fetch(`/api/read?source=${source}&title=${title}`);
+        const d = await r.json();
+        document.getElementById('readerTitle').textContent = d.title;
+        document.getElementById('readerContent').textContent = d.content || d.error || '';
+        document.getElementById('catalog').style.display = 'none';
+        document.getElementById('reader').style.display = 'block';
+    } catch(e) {}
+}
+
+function closeReader() {
+    document.getElementById('reader').style.display = 'none';
+    document.getElementById('catalog').style.display = 'block';
+}
