@@ -247,10 +247,10 @@ async def hotspots():
 
 @app.get("/api/kb-stats")
 async def kb_stats():
-    """统计知识库字数。"""
+    """统计知识库字数（含知识扩展）。"""
     import glob as _glob
     total = 0
-    for f in _glob.glob("data/txt/**/*_全文.txt", recursive=True) + _glob.glob("data/txt/**/*_精选.txt", recursive=True):
+    for f in _glob.glob("data/txt/**/*_全文.txt", recursive=True) + _glob.glob("data/txt/**/*_精选.txt", recursive=True) + _glob.glob("data/txt/知识扩展/*.txt", recursive=True):
         try: total += len(open(f, encoding="utf-8").read())
         except: pass
     return {"word_count": total, "word_count_wan": round(total / 10000)}
@@ -400,7 +400,7 @@ async def read_article(source: str = "", title: str = ""):
 
 @app.get("/api/articles")
 async def list_articles(source: str = ""):
-    """列出某来源下的所有文章。"""
+    """列出某来源下的所有文章。排除知识扩展。"""
     import glob as _glob, json as _json
     articles = []
     files = sorted(_glob.glob("data/extracted/**/*.json", recursive=True))
@@ -408,6 +408,7 @@ async def list_articles(source: str = ""):
         try:
             with open(f, "r", encoding="utf-8") as fh:
                 art = _json.load(fh)
+            if "知识扩展" in art.get("source", ""): continue
             if source and source not in art.get("source", ""): continue
             articles.append({"title": art.get("title",""), "date": art.get("date",""),
                            "source": art.get("source",""), "chars": len(art.get("content",""))})

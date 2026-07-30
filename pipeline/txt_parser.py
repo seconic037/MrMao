@@ -254,5 +254,15 @@ def extract_all(input_dir: str = "data/txt") -> list[dict]:
         all_articles.extend(poems)
         print(f"    提取 {len(poems)} 首")
 
+    # 3. 处理知识扩展（每个文件一篇）
+    ext_files = glob.glob(os.path.join(input_dir, "知识扩展/*.txt"))
+    for f_path in sorted(ext_files):
+        name = os.path.splitext(os.path.basename(f_path))[0]
+        with open(f_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        if content.strip():
+            all_articles.append({"source": "知识扩展", "title": name, "date": "", "content": content})
+            print(f"  知识扩展: {name} ({len(content)} 字)")
+
     print(f"  共提取 {len(all_articles)} 篇")
     return all_articles
