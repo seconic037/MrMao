@@ -43,15 +43,19 @@ llm: Optional[OpenAI] = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL) if LL
 
 # ── 内存状态 ─────────────────────────────────────────────
 session_log: list[dict] = []
-session_memories: list[str] = []  # 最近5轮摘要
+session_memories: list[str] = []
 total_tokens: int = 0
 round_count: int = 0
+last_activity: float = 0
+session_title: str = ""
+session_log_file: Path = None
 FATIGUE_YELLOW = 21
 FATIGUE_RED = 35
+TIMEOUT_SECONDS = 15 * 60  # 15 分钟无操作自动保存
 
 LOG_DIR = Path("data/logs")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
-session_log_file = LOG_DIR / f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+TITLES_FILE = LOG_DIR / "titles.json"
 
 # ── 恢复上次会话 ──────────────────────────────────────────
 def _restore_session():
@@ -127,10 +131,11 @@ def _fatigue_level() -> str:
     return "green"
 
 def _write_log(role: str, content: str, tokens_in: int = 0, tokens_out: int = 0):
+    global last_activity
+    _ensure_log_file()
     entry = {"role": role, "content": content, "time": datetime.now().isoformat(), "tokens_in": tokens_in, "tokens_out": tokens_out}
     session_log.append(entry)
-    with open(session_log_file, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    last_activity = time.time()
 
 def _generate_summary(question: str, answer: str) -> str:
     """用 LLM 生成一句 ≤15 字的对话摘要。"""
@@ -179,10 +184,14 @@ async def idle_actions():
 
 @app.get("/api/logs")
 async def get_logs():
+    titles = _load_titles()
     sessions = []
     for f in sorted(LOG_DIR.glob("session_*.jsonl"), reverse=True):
-        sessions.append({"name": f.name, "size": f.stat().st_size, "time": datetime.fromtimestamp(f.stat().st_mtime).isoformat()})
-    return {"sessions": sessions, "current": str(session_log_file.name), "entries": session_log[-100:]}
+        t = titles.get(f.name, {})
+        sessions.append({"name": f.name, "size": f.stat().st_size, "time": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
+                        "title": t.get("title", ""), "rounds": t.get("rounds", 0)})
+    return {"sessions": sessions, "current": str(session_log_file.name) if session_log_file else "",
+            "entries": session_log[-100:], "active_rounds": round_count, "active_title": session_title}
 
 @app.delete("/api/logs/{filename}")
 async def delete_log(filename: str):
@@ -235,6 +244,85 @@ async def hotspots():
         ]
     return {"hotspots": _hotspots_cache}
 
+
+# ── 会话管理 ──────────────────────────────────────────
+def _ensure_log_file():
+    global session_log_file
+    if session_log_file is None:
+        session_log_file = LOG_DIR / f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
+
+def _save_titles():
+    titles = {}
+    if TITLES_FILE.exists():
+        try: titles = json.loads(open(TITLES_FILE, encoding="utf-8").read())
+        except: pass
+    open(TITLES_FILE, "w", encoding="utf-8").write(json.dumps(titles, ensure_ascii=False))
+
+def _load_titles():
+    if TITLES_FILE.exists():
+        try: return json.loads(open(TITLES_FILE, encoding="utf-8").read())
+        except: pass
+    return {}
+
+def _auto_save_session():
+    """15分钟无操作自动保存日志。"""
+    global session_log, round_count
+    if not session_log_file or not session_log or round_count == 0:
+        return
+    _flush_log()
+    print(f"Session auto-saved: {round_count} rounds")
+
+def _flush_log():
+    """将内存中的日志写入文件。"""
+    global session_log, session_log_file
+    if not session_log or session_log_file is None:
+        return
+    with open(session_log_file, "a", encoding="utf-8") as f:
+        for entry in session_log:
+            if isinstance(entry, dict) and "_written" not in entry:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                entry["_written"] = True
+
+@app.get("/api/session/status")
+async def session_status():
+    """当前会话状态。"""
+    import time as _t
+    idle = _t.time() - last_activity if last_activity else 0
+    return {"active": round_count > 0, "rounds": round_count, "tokens": total_tokens,
+            "idle_seconds": int(idle), "title": session_title, "file": str(session_log_file.name) if session_log_file else ""}
+
+@app.post("/api/session/save")
+async def session_save(title: str = ""):
+    """保存日志。title 为空则自动生成。"""
+    global session_title, session_log, round_count, total_tokens, session_memories, last_activity, session_log_file
+    _ensure_log_file()
+    _flush_log()
+    session_title = title or datetime.now().strftime("%m/%d %H:%M")
+    titles = _load_titles()
+    titles[session_log_file.name] = {"title": session_title, "rounds": round_count, "time": datetime.now().isoformat()}
+    _save_titles()
+    # 重置会话
+    session_log = []; session_memories = []; round_count = 0; total_tokens = 0; last_activity = 0
+    session_log_file = None
+    return {"saved": True, "title": session_title}
+
+@app.post("/api/session/discard")
+async def session_discard():
+    """丢弃当前日志。"""
+    global session_log, round_count, total_tokens, session_memories, last_activity, session_log_file
+    if session_log_file and session_log_file.exists():
+        session_log_file.unlink()
+    session_log = []; session_memories = []; round_count = 0; total_tokens = 0; last_activity = 0
+    session_log_file = None
+    return {"discarded": True}
+
+@app.post("/api/session/title")
+async def set_title(filename: str = "", title: str = ""):
+    """编辑日志标题。"""
+    titles = _load_titles()
+    titles[filename] = {"title": title, "time": titles.get(filename, {}).get("time", "")}
+    _save_titles()
+    return {"ok": True}
 
 @app.get("/api/catalog")
 async def catalog():
@@ -300,6 +388,11 @@ async def chat(req: ChatReq):
     round_count += 1
     fatigue = _fatigue_level()
     _write_log("user", req.message)
+
+    # 检测超时
+    if last_activity and (time.time() - last_activity) > TIMEOUT_SECONDS:
+        _flush_log()
+        _auto_save_session()
 
     # 检索
     rags = retriever.search(req.message, top_k=5) if retriever else []

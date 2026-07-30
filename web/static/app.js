@@ -9,17 +9,34 @@ function switchTab(name){
     document.getElementById('tab-'+name).classList.add('active');
     if(name==='logs')loadLogs();
     if(name==='read')loadCatalogView();
+    if(name!=='chat'&&currentPage==='chat')askSaveLog();
+    currentPage=name;
+}
+let currentPage='home';
+let hasNewMessages=false;
+
+async function askSaveLog(){
+    if(!hasNewMessages)return;
+    const save=confirm('退出聊天？\n确定 = 保存日志\n取消 = 丢弃日志');
+    try{
+        if(save){await fetch('/api/session/save',{method:'POST'});}
+        else{await fetch('/api/session/discard',{method:'POST'});}
+    }catch(e){}
+    hasNewMessages=false;
 }
 // ── 聊天 ────────────────────────────────────
 async function enterChat(){
     switchTab('chat');
     resetIdleTimer();
-    try{const r=await fetch('/api/greeting');const d=await r.json();if(d.greeting)addMsg('assistant',d.greeting)}catch(e){}
+    // 检查是否有活跃会话
+    try{const r=await fetch('/api/session/status');const d=await r.json();if(!d.active){
+        try{const g=await fetch('/api/greeting');const dd=await g.json();if(dd.greeting)addMsg('assistant',dd.greeting)}catch(e){}
+    }}catch(e){}
 }
 async function send(){
     const m=document.getElementById('msg').value.trim();
     if(!m||loading)return;
-    addMsg('user',m);document.getElementById('msg').value='';loading=true;document.getElementById('sendBtn').disabled=true;resetIdleTimer();
+    addMsg('user',m);document.getElementById('msg').value='';loading=true;document.getElementById('sendBtn').disabled=true;resetIdleTimer();hasNewMessages=true;
     try{
         const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m})});
         if(!r.ok){const e=await r.json();throw new Error(e.detail||'请求失败')}
@@ -67,8 +84,20 @@ function showCurrentLog(){
 }
 function showHistoryLogs(){
     const el=document.getElementById('logBody');if(!logData?.sessions){el.innerHTML='<div class="log-loading">暂无记录</div>';return}
-    el.innerHTML=logData.sessions.map(s=>`<div class="log-session-item"><span>📄 ${s.name} (${(s.size/1024).toFixed(1)}KB)</span><span class="log-del" onclick="deleteLog('${s.name}')">🗑</span></div>`).join('');
+    el.innerHTML=logData.sessions.map(s=>{
+        const label=s.title||(s.time?s.time.substring(5,16):s.name);
+        const rounds=s.rounds||s.name.match(/\d+/)||'';
+        return `<div class="log-session-item">
+            <span class="log-title" onclick="editTitle('${s.name}','${(s.title||'').replace(/'/g,"\\'")}')">📄 ${label} · ${rounds}条</span>
+            <span class="log-del" onclick="deleteLog('${s.name}')">🗑</span>
+        </div>`
+    }).join('');
     document.querySelectorAll('#page-logs .log-tab').forEach((t,i)=>t.classList.toggle('active',i===1));
+}
+async function editTitle(filename,currentTitle){
+    const t=prompt('编辑日志标题：',currentTitle||'');
+    if(t===null)return;
+    try{await fetch(`/api/session/title?filename=${encodeURIComponent(filename)}&title=${encodeURIComponent(t)}`,{method:'POST'});loadLogs()}catch(e){}
 }
 async function deleteLog(name){if(!confirm('删除这条记录？'))return;try{await fetch(`/api/logs/${name}`,{method:'DELETE'});showHistoryLogs()}catch(e){}}
 

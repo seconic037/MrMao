@@ -72,6 +72,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans
 .log-entry{padding:8px 0;border-bottom:1px solid var(--border);font-size:14px;line-height:1.6}
 .log-session-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
 .log-del{color:#c62828;cursor:pointer;font-size:16px;padding:4px 8px}
+.log-title{cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.log-title:hover{color:var(--primary)}
 .log-loading{color:var(--text-light);text-align:center;padding:30px}
 
 /* ── 底部标签栏 ───────────── */
