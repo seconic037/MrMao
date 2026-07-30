@@ -124,7 +124,7 @@ async function editTitle(filename,currentTitle){
     const t=prompt('编辑日志标题：',currentTitle||'');
     if(t===null)return;
     try{await fetch(`/api/session/title?filename=${encodeURIComponent(filename)}&title=${encodeURIComponent(t)}`,{method:'POST'});const r=await fetch('/api/logs');logData=await r.json();showHistoryLogs()}catch(e){}
-}}
+}
 
 // ── 阅读页 ──────────────────────────────────
 async function loadCatalogView(){
