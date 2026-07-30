@@ -1,2 +1,5 @@
 [permissions]
-allow = ["Edit", "run_skill", "Bash=powershell -Command \"Get-Date -Format 'yyyy-MM-dd'\"", "Bash=for i in 2 3 4 5 6 7 8 9 10; do\n  bash \"C:\\Users\\68090\\AppData\\Roaming\\reasonix\\plugins\\superpowers\\skills\\subagent-driven-development\\scripts\\task-brief\" \"docs/superpowers/plans/2026-07-31-maozedong-qa-engine.md\" $i\ndone", "Bash=python -c \"from pipeline.chunker import chunk_articles; test = [{'source':'t','title':'T','date':'2024','content':'A\\n\\nB\\n\\nC'}]; c = chunk_articles(test, chunk_size=500); print(f'Chunks: {len(c)}, keys: {list(c[0].keys())}')\"", "Bash=cd \"C:\\Users\\68090\\Desktop\\ChairManMao\" && git log feat/ai-diary-media --oneline --not master | head -20 && echo \"---\" && echo \"Total commits on branch: $(git rev-list HEAD ^master --count)\""]
+allow = ["Edit", "run_skill"]
+
+[sandbox]
+allow_write = ["C:\\Users\\68090\\iCloudDrive\\一人公司\\AI店长\\diary"]
