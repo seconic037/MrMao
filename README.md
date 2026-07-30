@@ -1,5 +1,9 @@
 # 📖 MrMao — 主席模拟器
 
+> **中文：** 基于毛泽东著作（毛选四卷+文集+诗词+建国文稿）的 AI 对话系统。163万字语料库，RAG 混合检索，两阶段推理引擎（先想后说），手机端 Web 界面。和老人家聊聊历史、哲学、时政与人生。
+>
+> **English:** An AI-powered dialogue system based on Mao Zedong's complete works (Selected Works, Collected Writings, Poems, Post-1949 Manuscripts). 1.6M-character corpus, hybrid RAG retrieval, two-stage reasoning engine (think→speak), mobile-friendly web UI. Chat with the Chairman about history, philosophy, politics, and life.
+
 > 基于毛泽东著作的 AI 对话系统。毛选四卷 + 文集 + 诗词 + 建国后文稿 + 马克思主义经典 + 世界历史，**153 万字**语料库。
 
 ## ✨ 功能
