@@ -17,6 +17,21 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 - 周报：`diary/weekly/YYYY-Www.md`
 - 草稿：`diary/drafts/{platform}/`
 
+## 数据来源与采集
+
+本技能的数据来自当前 Reasonix 会话中的交互记录。
+
+### 采集内容
+- **任务描述**：用户让 AI 完成的任务
+- **工具调用**：会话中使用的 MCP 工具、技能或数据源
+- **关键产出**：AI 生成的内容、报告、代码、分析等
+- **AI 评价**：从 AI 视角看本次交互的价值和有趣之处
+
+### 采集时机
+- 用户主动调用 `/diary` 系列命令时
+- 对话结束时（由 `/diary endday` 触发）
+- 用户明确要求"记录一下"时
+
 ## 命令接口
 
 用户通过以下命令与技能交互：
@@ -35,3 +50,10 @@ allowed-tools: [read_file, write_file, grep, web_fetch, glob]
 2. 提取后续参数确定具体命令
 3. 匹配到对应命令则执行相应逻辑
 4. 未匹配则显示帮助信息
+
+### 联动
+- `/diary publish` 和 `/diary today` 执行时可调用 domestic-reach 技能辅助判断话题热度
+
+## 参考
+- 设计规格：`docs/superpowers/specs/2026-07-31-ai-diary-media-design.md`
+- 实现计划：`docs/superpowers/plans/2026-07-31-ai-diary-media.md`
