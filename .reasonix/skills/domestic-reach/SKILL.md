@@ -22,12 +22,17 @@ allowed-tools: [mcp__hotnews-mcp__fetch_platform, mcp__hotnews-mcp__list_hotspot
 5. **豆瓣** — 影视/文化热榜，`mcp__hotnews-mcp__fetch_platform(platform="douban", limit=10)`
 
 ### 二级数据源（web_fetch 抓取）
-6. **小红书** — `web_fetch(url="https://www.xiaohongshu.com/explore")` 获取探索页热门推荐内容（标题+点赞数+作者）
-7. 如需小红书搜索：`web_fetch(url="https://www.xiaohongshu.com/search_result?keyword={关键词}&type=1")`
+6. **小红书探索页** — `web_fetch(url="https://www.xiaohongshu.com/explore")` 获取探索页热门推荐内容（标题+点赞数+作者），无需关键词
+7. **小红书搜索** — `web_fetch(url="https://www.xiaohongshu.com/search_result?keyword={关键词}&type=1")` 按关键词搜索小红书笔记，提取笔记标题和互动数据
+8. **搜狗微信（公众号搜索）** — `web_fetch(url="https://weixin.sogou.com/weixin?type=2&query={关键词}")` 搜索公众号文章，提取文章标题、来源公众号。注意：搜狗微信返回的是搜索匹配结果，非公众号热榜，适合作为补充参考
 
 ### 已知不可用
-- **微博** — hotnews-mcp 的微博数据源当前返回空数据（反爬拦截），在报告中标注"微博数据暂不可用"
-- **抖音** — web_fetch 返回空 body，仅用 hotnews-mcp 数据
+- **微博** — 确认不可修复。hotnews-mcp 和移动端 API（m.weibo.cn）均被反爬拦截，返回空数据或 432 状态码。在报告中标注"微博数据暂不可用"
+- **抖音** — web_fetch 返回空 body，仅用 hotnews-mcp 的有限数据（约5条）
+- **抖音/微博 web 版本** — 需要浏览器渲染/登录，当前 web_fetch 不支持
+
+### 备用数据源（选配，需要时按需使用）
+- **微信公众号文章搜索** — 通过搜狗微信搜索指定关键词获取相关公众号文章，适合特定领域的内容调研（如搜"AI 科技 公众号"）
 
 ## 采集逻辑
 
@@ -60,6 +65,7 @@ allowed-tools: [mcp__hotnews-mcp__fetch_platform, mcp__hotnews-mcp__list_hotspot
 #### 百度热搜
 #### 知乎热榜
 #### 小红书热门
+#### 微信公众号相关文章（可选）
 
 ### 💡 选题建议
 - 基于热点趋势的选题方向
@@ -69,14 +75,17 @@ allowed-tools: [mcp__hotnews-mcp__fetch_platform, mcp__hotnews-mcp__list_hotspot
 - ✅ B站: 正常
 - ✅ 百度: 正常
 - ✅ 知乎: 正常
-- ⚠️ 抖音: 部分可用
-- ✅ 小红书: 探索页数据
+- ⚠️ 抖音: 部分可用（约5条）
+- ✅ 小红书: 探索页 + 关键词搜索
 - ✅ 豆瓣: 正常
-- ❌ 微博: 暂不可用
+- ✅ 搜狗微信: 可搜索公众号文章（关键词匹配）
+- ❌ 微博: 确认不可修复（反爬拦截）
 ```
 
 ## 注意事项
-- 小红书反爬严格，探索页数据仅为当前推荐内容，并非严格热搜排名
-- 抖音数据量有限，仅作为参考
-- 标记"微博数据暂不可用"让用户知晓
+- 小红书反爬严格，探索页数据仅为当前推荐内容，并非严格热搜排名；搜索功能可按关键词检索
+- 搜狗微信搜索返回的是关键词匹配结果，非公众号热榜，适合特定领域调研而非通用热点
+- 抖音数据量有限（约5条），仅作为参考
+- 微博确认不可修复：hotnews-mcp 和移动端 API 均被反爬拦截
 - 如用户需要特定领域（科技/时尚/财经等），在采集时优先筛选相关话题
+- 如需微信公众号热榜类数据，建议使用搜狗微信搜索行业关键词（如"科技 热点"）获取

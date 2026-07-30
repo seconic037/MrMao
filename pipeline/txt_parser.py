@@ -233,6 +233,10 @@ def extract_all(input_dir: str = "data/txt") -> list[dict]:
         os.path.join(input_dir, "**/*_全文.txt"),
         recursive=True
     )
+    fulltext_files += glob.glob(
+        os.path.join(input_dir, "**/*_精选.txt"),
+        recursive=True
+    )
     for ft_path in sorted(fulltext_files):
         print(f"  解析: {ft_path}")
         articles = extract_from_fulltext(ft_path)

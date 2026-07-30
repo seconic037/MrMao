@@ -12,7 +12,7 @@ def main():
     for a in sys.argv:
         if a.startswith("--port="):
             port = int(a.split("=")[1])
-    print(f"\n  📖 毛选思维引擎  http://localhost:{port}\n")
+    print(f"\n  >> 毛选思维引擎  http://localhost:{port}\n")
     uvicorn.run("web.app:app", host="0.0.0.0", port=port, reload=reload)
 
 if __name__ == "__main__":

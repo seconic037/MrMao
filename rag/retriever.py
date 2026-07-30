@@ -81,7 +81,8 @@ class Retriever:
             top_idx = sorted(
                 range(len(scores)), key=lambda i: scores[i], reverse=True
             )[:n_bm25]
-            max_score = max(scores) if scores and max(scores) > 0 else 1.0
+            max_score = max(scores) if len(scores) > 0 else 1.0
+            max_score = float(max_score) if max_score > 0 else 1.0
             for idx in top_idx:
                 b_scores[self._ids[idx]] = scores[idx] / max_score
 
