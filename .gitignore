@@ -1,4 +1,12 @@
 __pycache__/
 *.pyc
 .superpowers/
-chroma_db/
+.reasonix/
+data/logs/
+data/extracted/
+data/chroma_v*/
+data/chroma_db/
+.env
+server.log
+ChairManMao.zip
+_tmp_import/

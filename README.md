@@ -1,43 +1,32 @@
-# 主席模拟器
+# 📖 主席模拟器
 
-> 基于毛泽东著作的 AI 对话系统。毛选四卷 + 文集 + 诗词 + 建国后文稿，406 篇著作，约 100 万字。
+> 基于毛泽东著作的 AI 对话系统。毛选四卷 + 文集 + 诗词 + 建国后文稿 + 马克思主义经典 + 世界历史，**153 万字**语料库。
 
-## 功能
+## ✨ 功能
 
-- 💬 **和老人家聊天**：两阶段对话引擎，先用毛选原文思考、再用毛式语言表达
-- 🔥 **百度热搜**：首页展示实时热点
-- 📚 **阅读著作**：分级目录，点击阅读原文
-- 📋 **聊天日志**：保存/删除/一键 AI 总结
+- 💬 **和老人家聊天** —— 两阶段对话引擎，先想后说，逐字打字效果
+- 📚 **阅读著作** —— 分级目录，406 篇原文随时查阅
+- 🔥 **百度热搜** —— 首页实时热点，点击看概述再决定要不要聊
+- 📋 **聊天日志** —— 保存/删除/一键 AI 总结/可编辑标题
+- 🫁 **疲劳度系统** —— 35 轮后主席犯困，🍵续茶 🚬递烟恢复
+- 📱 **手机适配** —— 底部标签栏，微信式输入框，100dvh 安全区
+- 🔌 **离线嵌入** —— sentence-transformers 本地运行，无需联网
 
-## 技术栈
-
-Python 3.11 · FastAPI · ChromaDB · sentence-transformers · DeepSeek API
-
-## 快速开始
+## 🚀 快速开始
 
 ```bash
-# 1. 安装依赖
 pip install -r requirements.txt
-
-# 2. 配置 API key
-cp .env.example .env
-# 编辑 .env，填入你的 DeepSeek API key
-
-# 3. 构建向量索引（首次运行，约 5-10 分钟）
-python run_pipeline.py
-
-# 4. 启动
-python run_server.py
-# 浏览器打开 http://localhost:8001
-# 手机同 WiFi 打开 http://你的电脑IP:8001
+cp .env.example .env          # 编辑填入 DeepSeek API key
+python run_pipeline.py         # 构建向量索引（首次 ~5 分钟）
+python run_server.py           # 启动 http://localhost:8001
 ```
 
-双击 `启动主席.bat` 即可一键启动。
+手机同 WiFi 打开 `http://你的电脑IP:8001`。
 
-## 项目结构
+## 📁 项目结构
 
 ```
-├── data/txt/          # 毛选 TXT 原文
+├── data/txt/          # 语料库（毛选+文集+知识扩展）
 ├── pipeline/          # 离线数据处理
 │   ├── txt_parser.py    # TXT 解析
 │   ├── chunker.py       # 文本分块
@@ -46,10 +35,24 @@ python run_server.py
 │   └── retriever.py     # 向量+BM25 混合检索
 ├── reasoning/         # 推理引擎
 │   ├── framework.py
-│   └── prompts/
+│   └── prompts/         # think + speak 两阶段模板
 ├── web/               # Web 服务
 │   ├── app.py           # FastAPI
 │   └── static/          # 前端
 ├── knowledge/         # 知识库模板
-└── run_pipeline.py / run_server.py
+└── requirements.txt
 ```
+
+## ⚙️ 技术栈
+
+Python 3.11 · FastAPI · ChromaDB · sentence-transformers · DeepSeek API
+
+## 📄 数据来源
+
+- 毛选四卷：求是网 (qstheory.cn) 公开资料
+- 毛泽东文集、建国后文稿：公开整理
+- 知识扩展：马克思/恩格斯/列宁/斯大林著作摘要、四书五经、世界史等
+
+## 📝 许可证
+
+本项目代码采用 MIT 许可证。语料数据版权归属原作者及发布平台，仅供学习研究使用。
