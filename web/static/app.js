@@ -14,14 +14,60 @@ function switchTab(name){
 let currentPage='home';
 let hasNewMessages=false;
 
+// ── 入口面板 ────────────────────────────────
+async function showEntryPanel(){
+    try{const r=await fetch('/api/session/status');const s=await r.json();const r2=await fetch('/api/logs');const logs=await r2.json();
+        const el=document.getElementById('entryOptions');
+        let html='';
+        if(s.active)html+=`<div class="entry-opt" onclick="closeEntryModal();switchTab('chat')">💬 继续上次聊天<br><small>${s.rounds}轮对话，${(s.tokens/1000).toFixed(0)}K tokens</small></div>`;
+        if(!s.active&&logs.sessions&&logs.sessions.length>0){
+            html+='<div class="modal-btns" style="margin-top:8px"><select id="logSelect" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px">';
+            logs.sessions.forEach(l=>{html+=`<option value="${l.name}">${l.title||l.name} · ${l.rounds||'?'}条</option>`});
+            html+='</select><button onclick="resumeFromLog()" style="margin-top:6px">📜 继续这个话题</button></div>';
+        }
+        html+='<div class="entry-opt" onclick="startNewSession()">🆕 从头开始</div>';
+        if(!html)html='<p style="color:var(--text-light)">暂无聊天记录。开始全新对话吧。</p><div class="entry-opt" onclick="startNewSession()">🆕 开始全新对话</div>';
+        el.innerHTML=html;
+        document.getElementById('entryModal').style.display='flex';
+    }catch(e){enterChat();}
+}
+function closeEntryModal(){document.getElementById('entryModal').style.display='none'}
+function startNewSession(){
+    closeEntryModal();
+    fetch('/api/session/discard',{method:'POST'});
+    enterChat();
+}
+async function resumeFromLog(){
+    const fname=document.getElementById('logSelect').value;
+    closeEntryModal();
+    try{const r=await fetch(`/api/session/summarize?filename=${encodeURIComponent(fname)}`,{method:'POST'});const d=await r.json();
+        switchTab('chat');const greeting='上次咱们聊到：'+d.summary.substring(0,60)+'。后来您怎么看？';
+        addMsg('assistant',greeting);
+        // 注入上下文
+        window._hotContext='【对话背景】'+d.summary;
+    }catch(e){switchTab('chat')}
+}
+
+// ── 退出弹窗 ────────────────────────────────
 async function askSaveLog(){
     if(!hasNewMessages)return;
-    const save=confirm('退出聊天？\n确定 = 保存日志\n取消 = 丢弃日志');
-    try{
-        if(save){await fetch('/api/session/save',{method:'POST'});}
-        else{await fetch('/api/session/discard',{method:'POST'});}
+    const el=document.getElementById('exitModal');el.style.display='flex';
+    try{const r=await fetch('/api/session/status');const d=await r.json();
+        el.querySelector('p').textContent=`当前对话有 ${d.rounds} 轮，是否保存？`
     }catch(e){}
+}
+function closeExitModal(){document.getElementById('exitModal').style.display='none'}
+async function exitAndSave(){
+    closeExitModal();
+    await fetch('/api/session/save',{method:'POST'});
     hasNewMessages=false;
+    switchTab('home');
+}
+async function exitAndDiscard(){
+    closeExitModal();
+    await fetch('/api/session/discard',{method:'POST'});
+    hasNewMessages=false;
+    switchTab('home');
 }
 // ── 聊天 ────────────────────────────────────
 async function enterChat(){

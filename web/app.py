@@ -43,7 +43,8 @@ llm: Optional[OpenAI] = OpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL) if LL
 
 # ── 内存状态 ─────────────────────────────────────────────
 session_log: list[dict] = []
-session_memories: list[str] = []
+session_memories: list[dict] = []
+recent_qa: list[dict] = []
 total_tokens: int = 0
 round_count: int = 0
 last_activity: float = 0
@@ -136,18 +137,18 @@ def _write_log(role: str, content: str, tokens_in: int = 0, tokens_out: int = 0)
     session_log.append(entry)
     last_activity = time.time()
 
-def _generate_summary(question: str, answer: str) -> str:
-    """用 LLM 生成一句 ≤15 字的对话摘要。"""
-    if not llm: return question[:15]
+def _generate_summary(question: str, answer: str) -> dict:
+    """用 LLM 生成对话摘要。"""
+    if not llm: return {"question": question[:30], "summary": answer[:30]}
     try:
         r = llm.chat.completions.create(
             model=LLM_MODEL,
-            messages=[{"role": "user", "content": f"用一句话（不超过15个字）总结这段对话：\n问：{question}\n答：{answer[:100]}"}],
-            max_tokens=30, temperature=0.3
+            messages=[{"role": "user", "content": f"用一句话（不超过50字）总结这段对话的要点：\n问：{question[:100]}\n答：{answer[:100]}"}],
+            max_tokens=80, temperature=0.3
         )
-        return r.choices[0].message.content.strip()[:30]
+        return {"question": question[:60], "summary": r.choices[0].message.content.strip()[:80]}
     except:
-        return question[:15]
+        return {"question": question[:30], "summary": answer[:30]}
 
 def _compact_context() -> str:
     """将历史对话压缩为一段摘要。"""
@@ -404,7 +405,7 @@ async def list_articles(source: str = ""):
 
 @app.post("/api/chat", response_model=ChatResp)
 async def chat(req: ChatReq):
-    global total_tokens, round_count, session_memories
+    global total_tokens, round_count, session_memories, recent_qa
     if not llm:
         raise HTTPException(503, "LLM 未配置")
     if req.message == "__greeting__":
@@ -422,8 +423,8 @@ async def chat(req: ChatReq):
     # 检索
     rags = retriever.search(req.message, top_k=5) if retriever else []
 
-    # 阶段 1：思维
-    think_prompt = engine.build_think_prompt(req.message, rags)
+    # 阶段 1：思维（注入对话记忆）
+    think_prompt = engine.build_think_prompt(req.message, rags, session_memories[-5:])
     think_resp = llm.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "user", "content": think_prompt}],
@@ -432,17 +433,12 @@ async def chat(req: ChatReq):
     thinking = think_resp.choices[0].message.content
     t1 = think_resp.usage.total_tokens if think_resp.usage else 0
 
-    # 注入记忆
-    memory_block = ""
-    if session_memories:
-        memory_block = "## 你记得之前聊过\n" + "\n".join(f"- {m}" for m in session_memories[-5:]) + "\n\n"
-
     # 阶段 2：表达
     speak_prompt = engine.build_speak_prompt(req.message, thinking)
     speak_resp = llm.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "system", "content": "你是毛泽东本人，在和别人聊天。说话要有你的风格。"},
-                  {"role": "user", "content": memory_block + speak_prompt}],
+                  {"role": "user", "content": speak_prompt}],
         temperature=0.9, max_tokens=400
     )
     answer = speak_resp.choices[0].message.content

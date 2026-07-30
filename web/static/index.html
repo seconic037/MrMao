@@ -17,7 +17,7 @@
                 <div class="home-portrait">📖</div>
                 <h2>和老人家聊聊</h2>
                 <p>毛泽东选集 · 文集 · 诗词 · 建国后文稿 · 406 篇</p>
-                <button class="home-enter" onclick="enterChat()">和老人家聊聊</button>
+                <button class="home-enter" onclick="showEntryPanel()">和老人家聊聊</button>
             </div>
             <div class="hotspot-panel" id="hotspotPanel">
                 <div class="hotspot-header"><span>🔥 今日热议</span><span class="hotspot-source">百度热搜</span></div>
@@ -85,6 +85,25 @@
         </div>
     </div>
     <div class="log-panel" id="logPanel" style="display:none"></div>
+    <!-- 入口选择弹窗 -->
+    <div class="modal-overlay" id="entryModal" style="display:none">
+        <div class="modal-content">
+            <h3>📖 开始对话</h3>
+            <div id="entryOptions"></div>
+        </div>
+    </div>
+    <!-- 退出确认弹窗 -->
+    <div class="modal-overlay" id="exitModal" style="display:none">
+        <div class="modal-content">
+            <h3>退出聊天</h3>
+            <p style="font-size:14px;color:var(--text-light);margin-bottom:16px">当前对话有 {{rounds}} 轮，是否保存？</p>
+            <div class="modal-btns">
+                <button onclick="exitAndSave()">💾 保存并返回</button>
+                <button onclick="exitAndDiscard()">🗑 不保存并返回</button>
+                <button onclick="closeExitModal()">↩ 继续聊天</button>
+            </div>
+        </div>
+    </div>
 </div>
 <script src="/static/app.js"></script>
 </body>
