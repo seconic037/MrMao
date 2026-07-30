@@ -1,5 +1,0 @@
-[permissions]
-allow = ["Edit", "run_skill"]
-
-[sandbox]
-allow_write = ["C:\\Users\\68090\\iCloudDrive\\一人公司\\AI店长\\diary"]

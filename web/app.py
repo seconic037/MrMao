@@ -352,12 +352,12 @@ async def summarize_log(filename: str = ""):
 
 @app.post("/api/hotspot/preview")
 async def hotspot_preview(title: str = ""):
-    """生成热点事件的简要概述。"""
+    """生成热点事件的详细概述（至少200字）。"""
     if not llm or not title: return {"brief": title}
     resp = llm.chat.completions.create(
         model=LLM_MODEL,
-        messages=[{"role": "user", "content": f"请用两句话简要介绍这个热点新闻事件：{title}"}],
-        max_tokens=150, temperature=0.5
+        messages=[{"role": "user", "content": f"请用200-300字的篇幅，详细概述以下热点新闻事件：{title}\n\n要求：包含事件背景、核心内容、社会反响或影响，做到有信息量、有分析。不要只说一两句。"}],
+        max_tokens=600, temperature=0.7
     )
     return {"title": title, "brief": resp.choices[0].message.content.strip()}
 

@@ -6,7 +6,12 @@ data/logs/
 data/extracted/
 data/chroma_v*/
 data/chroma_db/
+data/chunks.jsonl
 .env
 server.log
 ChairManMao.zip
 _tmp_import/
+reasonix.toml
+AI店长_*
+ai-dianzhang-*
+maoxuan-workbench-*
