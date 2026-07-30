@@ -36,12 +36,15 @@ async function send(){
     const m=document.getElementById('msg').value.trim();
     if(!m||loading)return;
     addMsg('user',m);document.getElementById('msg').value='';loading=true;document.getElementById('sendBtn').disabled=true;resetIdleTimer();hasNewMessages=true;
+    // 等待动画
+    const actions=['[主席深吸了一口烟，正在思考...]','[老人家翻开手边的毛选...]','[主席在屋里踱了两步，若有所思...]','[老人家端起搪瓷杯喝了口茶...]','[主席拿笔在纸上写了几个字...]'];
+    const loadingEl=addMsg('assistant',actions[Math.floor(Math.random()*actions.length)]);
     try{
         const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m})});
         if(!r.ok){const e=await r.json();throw new Error(e.detail||'请求失败')}
         const d=await r.json();
-        addMsg('assistant',d.answer||'');updateStats(d);currentFatigue=d.fatigue||'green';updateFatigueUI();updateCompactBtns();
-    }catch(e){addMsg('assistant','❌ '+e.message)}
+        loadingEl.remove();addMsg('assistant',d.answer||'');updateStats(d);currentFatigue=d.fatigue||'green';updateFatigueUI();updateCompactBtns();
+    }catch(e){loadingEl.remove();addMsg('assistant','❌ '+e.message)}
     loading=false;document.getElementById('sendBtn').disabled=false;
 }
 function addMsg(role,html){
@@ -151,7 +154,7 @@ async function readArticle(source,title){
 
 // ── 首页 ────────────────────────────────────
 async function loadTopics(){try{const r=await fetch('/api/catalog');const d=await r.json();const el=document.getElementById('topicList');el.innerHTML=d.topics.map(t=>`<span class="topic-item" data-q="${t.replace(/"/g,'&quot;')}">${t}</span>`).join('');el.querySelectorAll('.topic-item').forEach(s=>s.onclick=()=>ask(s.dataset.q))}catch(e){}}
-async function loadHotspots(){try{const r=await fetch('/api/hotspots');const d=await r.json();const el=document.getElementById('hotspotList');el.innerHTML=d.hotspots.map(h=>`<div class="hotspot-item" data-q="${h.title.replace(/"/g,'&quot;')}，你怎么看？"><span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span></div>`).join('');el.querySelectorAll('.hotspot-item').forEach(s=>s.onclick=()=>ask(s.dataset.q))}catch(e){}}
+async function loadHotspots(){try{const r=await fetch('/api/hotspots');const d=await r.json();const el=document.getElementById('hotspotList');el.innerHTML=d.hotspots.map(h=>`<div class="hotspot-item" data-q="${h.title.replace(/"/g,'&quot;')}，您怎么看？" onclick="ask(this.dataset.q)"><span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span></div>`).join('');}catch(e){}}
 
 // ── 启动 ────────────────────────────────────
 fetch('/api/status').then(r=>r.json()).then(s=>{if(!s.rag)document.getElementById('stats')&&(document.getElementById('stats').innerHTML='⚠ RAG未就绪');if(!s.llm)document.getElementById('stats')&&(document.getElementById('stats').innerHTML='⚠ LLM未配置')});
