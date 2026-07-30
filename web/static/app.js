@@ -7,7 +7,7 @@ let currentFatigue = 'green';
 // ── 进入聊天 ──────────────────────────────────
 async function enterChat() {
     document.getElementById('cover').style.display = 'none';
-    document.getElementById('chat').style.display = 'flex';
+    document.getElementById('chatApp').style.display = 'flex';
     document.getElementById('stats').style.display = 'block';
     document.getElementById('fatigueBar').style.display = 'block';
     resetIdleTimer();
@@ -21,7 +21,7 @@ async function enterChat() {
 // ── 让主席休息 ────────────────────────────────
 function restChairman() {
     document.getElementById('cover').style.display = 'flex';
-    document.getElementById('chat').style.display = 'none';
+    document.getElementById('chatApp').style.display = 'none';
     document.getElementById('chat').innerHTML = '';
     document.getElementById('stats').style.display = 'none';
     document.getElementById('fatigueBar').style.display = 'none';
@@ -155,31 +155,64 @@ function refreshIdleAction() {
 // ── 日志侧栏 ──────────────────────────────────
 async function toggleLogs() {
     const panel = document.getElementById('logPanel');
-    if (panel.style.display === 'block') {
-        panel.style.display = 'none';
-        return;
-    }
+    if (panel.style.display === 'block') { panel.style.display = 'none'; return; }
     panel.style.display = 'block';
     panel.innerHTML = '<div class="log-loading">加载中...</div>';
     try {
         const r = await fetch('/api/logs');
         const d = await r.json();
-        let html = '<div class="log-header">📋 对话日志 <span onclick="toggleLogs()" style="cursor:pointer;float:right">✕</span></div>';
-        html += '<div class="log-sessions">';
-        for (const s of (d.sessions || []).slice(0, 10)) {
-            html += `<div class="log-session">📄 ${s.name} (${(s.size/1024).toFixed(1)}KB)</div>`;
+        let html = '<div class="log-header">📋 对话记录 <span onclick="toggleLogs()" style="cursor:pointer;float:right">✕</span></div>';
+        html += '<div class="log-tabs">';
+        html += '<span class="log-tab active" onclick="showCurrentLog()">当前会话</span>';
+        html += '<span class="log-tab" onclick="showHistoryLogs()">历史记录</span>';
+        html += '</div>';
+        html += '<div class="log-body" id="logBody">';
+        if (d.entries?.length) {
+            for (const e of d.entries) {
+                const role = e.role === 'chairman' ? '主席' : '你';
+                html += `<div class="log-entry"><b>${role}：</b>${e.content}</div>`;
+            }
         }
         html += '</div>';
-        if (d.entries?.length) {
-            html += '<div class="log-current">当前会话：<br>';
-            for (const e of d.entries.slice(-20)) {
-                const cls = e.role === 'chairman' ? 'log-chairman' : 'log-user';
-                html += `<div class="${cls}"><b>${e.role === 'chairman' ? '主席' : '你'}：</b>${e.content.substring(0, 50)}...</div>`;
-            }
-            html += '</div>';
-        }
         panel.innerHTML = html;
+        panel._logData = d;
     } catch (e) { panel.innerHTML = '<div class="log-loading">加载失败</div>'; }
+}
+
+function showCurrentLog() {
+    const d = document.getElementById('logPanel')._logData;
+    if (!d?.entries) return;
+    let html = '';
+    for (const e of d.entries) {
+        const role = e.role === 'chairman' ? '主席' : '你';
+        html += `<div class="log-entry"><b>${role}：</b>${e.content}</div>`;
+    }
+    document.getElementById('logBody').innerHTML = html;
+    document.querySelectorAll('.log-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.log-tab')[0]?.classList.add('active');
+}
+
+function showHistoryLogs() {
+    const d = document.getElementById('logPanel')._logData;
+    if (!d?.sessions) return;
+    let html = '';
+    for (const s of d.sessions) {
+        html += `<div class="log-session-item">
+            <span>📄 ${s.name} (${(s.size/1024).toFixed(1)}KB · ${s.time?.substring(0,10)||''})</span>
+            <span class="log-del" onclick="deleteLog('${s.name}')" title="删除">🗑</span>
+        </div>`;
+    }
+    document.getElementById('logBody').innerHTML = html;
+    document.querySelectorAll('.log-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.log-tab')[1]?.classList.add('active');
+}
+
+async function deleteLog(filename) {
+    if (!confirm('确定删除这条对话记录？')) return;
+    try {
+        await fetch(`/api/logs/${filename}`, { method: 'DELETE' });
+        showHistoryLogs();
+    } catch (e) {}
 }
 
 // ── 初始化 ────────────────────────────────────

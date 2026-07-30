@@ -62,12 +62,13 @@
     </div>
 
     <!-- 聊天区（初始隐藏） -->
-    <main class="chat" id="chat" style="display:none">
-        <div class="inline-input" id="bottomInput">
+    <div class="chat-app" id="chatApp" style="display:none">
+        <main class="chat-messages" id="chat"></main>
+        <footer class="chat-input">
             <textarea id="msg" placeholder="随便问点什么..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
             <button id="sendBtn" onclick="send()">发送</button>
-        </div>
-    </main>
+        </footer>
+    </div>
     <div class="log-panel" id="logPanel" style="display:none"></div>
 </div>
 <script src="/static/app.js"></script>

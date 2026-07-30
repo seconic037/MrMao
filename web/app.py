@@ -181,8 +181,17 @@ async def idle_actions():
 async def get_logs():
     sessions = []
     for f in sorted(LOG_DIR.glob("session_*.jsonl"), reverse=True):
-        sessions.append({"name": f.name, "size": f.stat().st_size})
-    return {"sessions": sessions, "current": str(session_log_file.name), "entries": session_log[-50:]}
+        sessions.append({"name": f.name, "size": f.stat().st_size, "time": datetime.fromtimestamp(f.stat().st_mtime).isoformat()})
+    return {"sessions": sessions, "current": str(session_log_file.name), "entries": session_log[-100:]}
+
+@app.delete("/api/logs/{filename}")
+async def delete_log(filename: str):
+    """删除指定日志文件。"""
+    path = LOG_DIR / filename
+    if path.exists() and "session_" in filename:
+        path.unlink()
+        return {"deleted": filename}
+    raise HTTPException(404, "文件不存在")
 
 @app.post("/api/compact")
 async def compact():
