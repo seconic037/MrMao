@@ -53,6 +53,37 @@ LOG_DIR = Path("data/logs")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 session_log_file = LOG_DIR / f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
 
+# ── 恢复上次会话 ──────────────────────────────────────────
+def _restore_session():
+    """从最近的日志文件恢复会话状态。"""
+    global round_count, total_tokens, session_memories, session_log
+    log_files = sorted(LOG_DIR.glob("session_*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)
+    if not log_files:
+        return
+    latest = log_files[0]
+    # 只恢复今天或昨天的会话（太旧的不恢复）
+    try:
+        entries = []
+        with open(latest, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    entries.append(json.loads(line))
+        if not entries:
+            return
+        # 计算轮数
+        round_count = sum(1 for e in entries if e.get("role") == "user")
+        total_tokens = sum(e.get("tokens_in", 0) for e in entries)
+        # 加载最近 5 条 assistant 回复作为记忆
+        assistant_msgs = [e for e in entries if e.get("role") == "chairman"]
+        session_memories = [m.get("content", "")[:30] for m in assistant_msgs[-5:]]
+        session_log = entries
+        print(f"Session restored: {round_count} rounds, {total_tokens} tokens from {latest.name}")
+    except Exception as e:
+        print(f"Session restore skipped: {e}")
+
+_restore_session()
+
 # ── 模型 ──────────────────────────────────────────────────
 class ChatReq(BaseModel):
     message: str
