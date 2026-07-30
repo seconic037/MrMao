@@ -50,6 +50,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans
 .message.user{align-self:flex-end;background:var(--user-bg);color:#fff;border-bottom-right-radius:4px}
 .message.assistant{align-self:flex-start;background:var(--ai-bg);color:var(--text);border-bottom-left-radius:4px;box-shadow:0 1px 6px rgba(0,0,0,.06)}
 .idle-action{text-align:center;color:var(--text-light);font-style:italic;padding:10px;font-size:13px;opacity:.7;animation:fadeIn 1s}
+.message.loading{opacity:.7;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
 
 /* ── 阅读页 ───────────────── */
 .reader-nav{padding:16px;font-size:15px;color:var(--primary);font-weight:600;border-bottom:1px solid var(--border);cursor:pointer}

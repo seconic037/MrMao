@@ -36,20 +36,37 @@ async function send(){
     const m=document.getElementById('msg').value.trim();
     if(!m||loading)return;
     addMsg('user',m);document.getElementById('msg').value='';loading=true;document.getElementById('sendBtn').disabled=true;resetIdleTimer();hasNewMessages=true;
-    // 等待动画
-    const actions=['[主席深吸了一口烟，正在思考...]','[老人家翻开手边的毛选...]','[主席在屋里踱了两步，若有所思...]','[老人家端起搪瓷杯喝了口茶...]','[主席拿笔在纸上写了几个字...]'];
-    const loadingEl=addMsg('assistant',actions[Math.floor(Math.random()*actions.length)]);
+    // 等待动画 + 动态省略号
+    const loadingEl=addMsg('assistant','[主席抽了口烟，正在思考]');
+    loadingEl.classList.add('loading');
+    let dots=0;const dotTimer=setInterval(()=>{dots=(dots+1)%4;loadingEl.innerHTML='[主席抽了口烟，正在思考'+'.'.repeat(dots)+']'},500);
     try{
         const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m})});
         if(!r.ok){const e=await r.json();throw new Error(e.detail||'请求失败')}
         const d=await r.json();
-        loadingEl.remove();addMsg('assistant',d.answer||'');updateStats(d);currentFatigue=d.fatigue||'green';updateFatigueUI();updateCompactBtns();
-    }catch(e){loadingEl.remove();addMsg('assistant','❌ '+e.message)}
+        clearInterval(dotTimer);loadingEl.remove();
+        typewrite(d.answer||'',d);
+    }catch(e){clearInterval(dotTimer);loadingEl.remove();addMsg('assistant','❌ '+e.message)}
     loading=false;document.getElementById('sendBtn').disabled=false;
 }
 function addMsg(role,html){
     const d=document.createElement('div');d.className='message '+role;d.innerHTML=html.replace(/\n/g,'<br>');
-    document.getElementById('chat').appendChild(d);d.scrollIntoView();
+    document.getElementById('chat').appendChild(d);d.scrollIntoView();return d;
+}
+function typewrite(text,data){
+    const el=addMsg('assistant','');
+    let i=0;const len=text.length;
+    const speed=len<100?25:len<300?40:60;
+    function tick(){
+        if(i>=len){if(data)updateStats(data);if(data){currentFatigue=data.fatigue||'green';updateFatigueUI();updateCompactBtns()}return}
+        let chunk=1;
+        if(text[i]==='['){const end=text.indexOf(']',i);if(end>i){chunk=end-i+1}else{chunk=1}}
+        el.innerHTML+=text.substring(i,i+chunk).replace(/\n/g,'<br>');
+        i+=chunk;el.scrollIntoView();
+        const delay=chunk>1?speed*2:speed;
+        setTimeout(tick,delay);
+    }
+    tick();
 }
 function ask(t){document.getElementById('msg').value=t;enterChat();setTimeout(()=>send(),200);}
 
