@@ -244,4 +244,7 @@ function chatAboutHot(){
 
 // ── 启动 ────────────────────────────────────
 fetch('/api/status').then(r=>r.json()).then(s=>{if(!s.rag)document.getElementById('stats')&&(document.getElementById('stats').innerHTML='⚠ RAG未就绪');if(!s.llm)document.getElementById('stats')&&(document.getElementById('stats').innerHTML='⚠ LLM未配置')});
-loadTopics();loadHotspots();
+loadTopics();loadHotspots();loadKbStats();
+
+// ── 知识库统计 ──────────────────────────────
+async function loadKbStats(){try{const r=await fetch('/api/kb-stats');const d=await r.json();document.getElementById('kbStat').textContent=`知识库总量：${d.word_count_wan} 万字`}catch(e){}}

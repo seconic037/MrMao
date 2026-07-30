@@ -245,6 +245,17 @@ async def hotspots():
     return {"hotspots": _hotspots_cache}
 
 
+@app.get("/api/kb-stats")
+async def kb_stats():
+    """统计知识库字数。"""
+    import glob as _glob
+    total = 0
+    for f in _glob.glob("data/txt/**/*_全文.txt", recursive=True) + _glob.glob("data/txt/**/*_精选.txt", recursive=True):
+        try: total += len(open(f, encoding="utf-8").read())
+        except: pass
+    return {"word_count": total, "word_count_wan": round(total / 10000)}
+
+
 # ── 会话管理 ──────────────────────────────────────────
 def _ensure_log_file():
     global session_log_file
