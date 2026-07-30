@@ -12,7 +12,6 @@ import fitz  # pymupdf
 import os
 import json
 import re
-from pathlib import Path
 
 
 def extract_articles(pdf_path: str) -> list[dict]:
@@ -85,9 +84,9 @@ def _split_by_heading_patterns(full_text: str, source: str) -> list[dict]:
     """当PDF无书签时，通过标题特征切分文章。
 
     识别特征：
-    - 行首有 "一、二、三..." 或 "(一)(二)" 这种结构标记
-    - 短行（<50字符）且前后有空行 → 可能是标题
-    - 含括号日期的行 → 篇目标题
+    - 行首有 "（一）（二）..." 或 "一、二、三..." 这种结构标记 → 篇目分隔符
+    - 短行（<80字符）且含括号日期 → 篇目标题（如 "实践论（一九三七年七月）"）
+    - 短行（<80字符）前后有空行 → 可能是篇目标题
     """
     lines = full_text.split("\n")
     articles = []
@@ -95,34 +94,56 @@ def _split_by_heading_patterns(full_text: str, source: str) -> list[dict]:
     current_date = ""
     current_lines = []
 
+    # 匹配篇目分隔符： （一）（二）... 或 一、二、三...
     heading_pattern = re.compile(
-        r'^[（(][一二三四五六七八九十]+[）)]'
+        r'^(?:[（(][一二三四五六七八九十]+[）)]|[一二三四五六七八九十]+[、.])'
     )
 
-    for line in lines:
-        line = line.strip()
-        if not line:
-            # 空行 → 可能的分界，积累到下一节
-            if current_lines and not current_title:
-                # 把前面的短行当作标题
-                candidate = current_lines[-1]
-                if len(candidate) < 80 and not heading_pattern.match(candidate):
-                    current_title, current_date = _parse_title_and_date(candidate)
-                    current_lines = current_lines[:-1]
+    def _flush_article():
+        """将当前积累的内容保存为一篇文章并重置。"""
+        nonlocal current_title, current_date, current_lines
+        if not current_lines and not current_title:
+            return
+        title = current_title or source
+        content = "\n".join(current_lines).strip()
+        if content:
+            articles.append({
+                "source": source,
+                "title": title,
+                "date": current_date,
+                "content": content
+            })
+        current_title = ""
+        current_date = ""
+        current_lines = []
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            current_lines.append(line)
             continue
 
-        current_lines.append(line)
+        # 检测当前行是否为篇目标题行
+        is_title = False
 
-    # 无法精确分篇时，整体作为一篇
-    if not current_title:
-        current_title = source
+        # 条件1：匹配 （一）（二）... 或 一、二、三... 格式 → 篇目分隔符
+        if heading_pattern.match(stripped):
+            is_title = True
+        # 条件2：短行（<80字符）且含括号日期
+        elif len(stripped) < 80 and re.search(r'[（(].{4,20}[）)]', stripped):
+            is_title = True
+        # 条件3：短行（<80字符）且前后都是空行 → 独立标题
+        elif len(stripped) < 80 and (i == 0 or not lines[i - 1].strip()) and (i == len(lines) - 1 or not lines[i + 1].strip()):
+            is_title = True
 
-    articles.append({
-        "source": source,
-        "title": current_title,
-        "date": current_date,
-        "content": "\n".join(current_lines).strip()
-    })
+        if is_title:
+            _flush_article()
+            current_title, current_date = _parse_title_and_date(stripped)
+        else:
+            current_lines.append(line)
+
+    # 保存最后一篇文章
+    _flush_article()
 
     return articles
 
