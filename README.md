@@ -1,21 +1,58 @@
 # 📖 MrMao — 主席模拟器
 
-> **中文：** 基于毛泽东著作（毛选四卷+文集+诗词+建国文稿）的 AI 对话系统。163万字语料库，RAG 混合检索，两阶段推理引擎（先想后说），手机端 Web 界面。和老人家聊聊历史、哲学、时政与人生。
+> **中文：** 基于毛泽东著作（毛选四卷+文集+诗词+建国文稿+39个知识扩展）的 AI 对话系统。**163万字语料库**，RAG 混合检索，两阶段推理引擎（先想后说），手机端 Web 界面。和老人家聊聊历史、哲学、时政与人生。
 >
-> **English:** An AI-powered dialogue system based on Mao Zedong's complete works (Selected Works, Collected Writings, Poems, Post-1949 Manuscripts). 1.6M-character corpus, hybrid RAG retrieval, two-stage reasoning engine (think→speak), mobile-friendly web UI. Chat with the Chairman about history, philosophy, politics, and life.
+> **English:** An AI-powered dialogue system based on Mao Zedong's complete works. **1.6M-character corpus**, hybrid RAG retrieval, two-stage reasoning engine (think→speak), mobile-friendly web UI. Chat with the Chairman about history, philosophy, politics, and life.
 
-> 基于毛泽东著作的 AI 对话系统。毛选四卷 + 文集 + 诗词 + 建国后文稿 + 马克思主义经典 + 世界历史，**153 万字**语料库。
+---
 
-## ✨ 功能
+## ✨ 功能特点
 
-- 💬 **和老人家聊天** —— 两阶段对话引擎，先想后说，逐字打字效果
-- 📚 **阅读著作** —— 分级目录，406 篇原文随时查阅
-- 🔥 **百度热搜** —— 首页实时热点，点击看概述再决定要不要聊
-- 📋 **聊天日志** —— 保存/删除/一键 AI 总结/可编辑标题
-- 🫁 **疲劳度系统** —— 35 轮后主席犯困，🍵续茶 🚬递烟恢复
-- 📱 **手机适配** —— 底部标签栏，微信式输入框，100dvh 安全区
-- 🔌 **离线嵌入** —— sentence-transformers 本地运行，无需联网
-- 🧠 **33 个知识扩展** —— 马列经典 + 四书五经 + 36计 + 四大名著 + 中医科技史 + 诗词宗教 + 成语典故等
+### 💬 两阶段对话引擎
+- **先想后说**：内部用矛盾分析法思考（主要矛盾、立场、主客条件），再用毛泽东的口吻自然表达
+- **逐字打字效果**：模拟真实的交谈节奏，每句话带中括号动作描写
+- **语境记忆**：自动记住最近 5 轮对话内容，聊天不断片
+
+### 🧠 RAG 混合检索
+- **向量语义检索** + **BM25 关键词检索**双通道，RRF 融合排序
+- 从 2,547 个文本块中精准召回最相关的著作原文
+- 聊天时实时引用出处（书名+日期），回答有据可查
+
+### 📚 445 篇著作全文
+- 毛选四卷（133 篇）、毛泽东文集（186 篇）、建国以来文稿（13 篇精选）
+- 毛泽东诗词全集（74 首）、讲话与谈话
+- 分级目录阅读：分类 → 卷 → 篇名 → 全文
+
+### 🧩 39 个知识扩展
+| 类别 | 内容 |
+|------|------|
+| 📕 **马列经典** | 马克思核心观点、列宁帝国主义论、恩格斯自然辩证法、斯大林社会主义建设、政治经济学、科学社会主义、历史唯物主义 |
+| 📜 **中国古典** | 四书五经名句、增广贤文、三十六计、孙子兵法、四大名著精华、世说新语、儒林外史、聊斋志异、阅微草堂笔记 |
+| 🌍 **历史文明** | 中国通史、中国近现代史、世界革命史、西方历史 |
+| 🏥 **科技文化** | 中国传统医学、中国科技史、诗词鉴赏、成语典故 500 条 |
+| 🏛️ **哲学宗教** | 中国哲学史、西方哲学经典语录、宗教经典入门、世界文学名著 |
+
+### 🔥 实时热点
+- 首页展示百度热搜，点击可看 **200-300 字详细概述**
+- 看完热点可直接找主席聊聊看法
+
+### 📱 手机优先设计
+- 底部三标签栏（首页/聊天/阅读），微信式输入框
+- 100dvh 安全区适配刘海屏，触感反馈
+
+### 🫁 疲劳度系统
+- 35 轮后主席会犯困，显示「🟡累了」「🔴该休息了」
+- 点击「🍵续茶」「🚬递烟」一键压缩对话，恢复精神
+
+### 📋 聊天日志管理
+- 自动保存每次对话，支持历史回顾
+- 一键 AI 总结，编辑标题，删除记录
+
+### 🔌 离线嵌入
+- 嵌入模型 `BAAI/bge-small-zh-v1.5` 本地运行，无需联网
+- 首次下载后即可离线构建索引
+
+---
 
 ## 🚀 快速开始
 
@@ -23,15 +60,17 @@
 pip install -r requirements.txt
 cp .env.example .env          # 编辑填入 DeepSeek API key
 python run_pipeline.py         # 构建向量索引（首次 ~5 分钟）
-python run_server.py           # 启动 http://localhost:8001
+python run_server.py           # 启动 http://localhost:8000
 ```
 
-手机同 WiFi 打开 `http://你的电脑IP:8001`。
+手机同 WiFi 打开 `http://你的电脑IP:8000`。
+
+---
 
 ## 📁 项目结构
 
 ```
-├── data/txt/          # 语料库（毛选+文集+33个知识扩展）
+├── data/txt/          # 语料库（毛选+文集+39个知识扩展）
 ├── pipeline/          # 离线数据处理
 │   ├── txt_parser.py    # TXT 解析
 │   ├── chunker.py       # 文本分块
@@ -48,15 +87,40 @@ python run_server.py           # 启动 http://localhost:8001
 └── requirements.txt
 ```
 
+---
+
 ## ⚙️ 技术栈
 
-Python 3.11 · FastAPI · ChromaDB · sentence-transformers · DeepSeek API
+| 层级 | 技术 |
+|------|------|
+| 后端框架 | Python 3.11 · FastAPI · Uvicorn |
+| 向量数据库 | ChromaDB (cosine 相似度) |
+| 嵌入模型 | BAAI/bge-small-zh-v1.5 (sentence-transformers) |
+| 关键词检索 | jieba 分词 + rank-bm25 (RRF 融合) |
+| LLM | DeepSeek API (deepseek-chat) |
+| 前端 | 原生 HTML/CSS/JS · 响应式移动端 |
+| 提示引擎 | Jinja2 模板 (think/speak 两阶段) |
+
+---
+
+## 📄 数据规模
+
+| 指标 | 数值 |
+|------|------|
+| 文章总数 | 445 篇 |
+| 文本块 | 2,547 块 |
+| 知识扩展 | 39 个文件 |
+| 语料总字数 | 163 万字 |
+
+---
 
 ## 📄 数据来源
 
 - 毛选四卷：求是网 (qstheory.cn) 公开资料
 - 毛泽东文集、建国后文稿：公开整理
-- 知识扩展：马克思/恩格斯/列宁/斯大林著作摘要、四书五经、世界史等
+- 知识扩展：马克思/恩格斯/列宁/斯大林著作摘要、四书五经、世界史、中医、科技史等
+
+---
 
 ## 📝 许可证
 
