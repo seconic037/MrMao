@@ -161,7 +161,7 @@ function renderLogPanel(){
 function showCurrentLogTab(){
     const el=document.getElementById('logBody');if(!logData?.entries?.length){el.innerHTML='<div class="log-loading">暂无记录</div>';return}
     el.innerHTML=logData.entries.map(e=>`<div class="log-entry"><b>${e.role==='chairman'?'主席':'你'}：</b>${e.content}</div>`).join('');
-    if(logData.active_rounds>0)el.innerHTML+='<div class="log-actions"><button onclick="summarizeCurrent()">🤖 一键总结</button></div>';
+    if(logData.active_rounds>0)el.innerHTML+='<div class="log-actions"><button onclick="summarizeCurrent()">📝 一键总结</button></div>';
     document.querySelectorAll('#logPanel .log-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
 }
 function showHistoryLogs(){
@@ -170,7 +170,7 @@ function showHistoryLogs(){
         const label=s.title||(s.time?s.time.substring(5,16):s.name);
         return `<div class="log-session-item">
             <span class="log-title" onclick="editTitle('${s.name}','${(s.title||'').replace(/'/g,"\\'")}')">📄 ${label} · ${s.rounds||'?'}条</span>
-            <span class="log-acts"><span onclick="summarizeLog('${s.name}')" style="color:var(--primary);cursor:pointer;margin-right:8px" title="一键总结">🤖</span><span class="log-del" onclick="deleteLogWithConfirm('${s.name}')">🗑</span></span>
+            <span class="log-acts"><span onclick="summarizeLog('${s.name}')" style="color:var(--primary);cursor:pointer;margin-right:8px" title="一键总结">📝</span><span class="log-del" onclick="deleteLogWithConfirm('${s.name}')">🗑</span></span>
         </div>`
     }).join('');
     document.querySelectorAll('#logPanel .log-tab').forEach((t,i)=>t.classList.toggle('active',i===1));
@@ -183,12 +183,12 @@ async function summarizeCurrent(){
     if(!logData?.current)return;
     const el=document.getElementById('logBody');el.innerHTML+='<div class="log-loading">总结中...</div>';
     try{const r=await fetch(`/api/session/summarize?filename=${encodeURIComponent(logData.current)}`,{method:'POST'});const d=await r.json();
-        el.innerHTML+='<div class="log-summary"><b>🤖 AI 总结：</b><br>'+d.summary+'</div>'}catch(e){}
+        el.innerHTML+='<div class="log-summary"><b>📝 AI 总结：</b><br>'+d.summary+'</div>'}catch(e){}
 }
 async function summarizeLog(filename){
     const el=document.getElementById('logBody');el.innerHTML+='<div class="log-loading">总结中...</div>';
     try{const r=await fetch(`/api/session/summarize?filename=${encodeURIComponent(filename)}`,{method:'POST'});const d=await r.json();
-        el.innerHTML+='<div class="log-summary"><b>🤖 AI 总结：</b><br>'+d.summary+'</div>'}catch(e){}
+        el.innerHTML+='<div class="log-summary"><b>📝 AI 总结：</b><br>'+d.summary+'</div>'}catch(e){}
 }
 async function editTitle(filename,currentTitle){
     const t=prompt('编辑日志标题：',currentTitle||'');

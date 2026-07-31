@@ -65,6 +65,8 @@ python run_server.py           # 启动 http://localhost:8000
 
 手机同 WiFi 打开 `http://你的电脑IP:8000`。
 
+> 💡 **开机自启：** 右键 `install_service.bat` →「以管理员身份运行」，将注册为 Windows 服务，开机自动后台运行。
+
 ---
 
 ## 📁 项目结构

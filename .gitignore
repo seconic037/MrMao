@@ -15,3 +15,7 @@ reasonix.toml
 AI店长_*
 ai-dianzhang-*
 maoxuan-workbench-*
+tools/
+install_service.bat
+diary/
+*.vbs
