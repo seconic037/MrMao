@@ -364,11 +364,17 @@ class App(tk.Tk):
                 self.after(0, self._append_rebuild, line)
             code = proc.wait()
             self.after(0, self._append_rebuild, f"\n退出码 {code}：" + ("重建成功" if code == 0 else "重建失败，见上方日志\n"))
-            self.is_rebuilding = False
-            self.set_status("重建成功" if code == 0 else "重建失败")
+            self.after(0, self._finish_rebuild, code)
         except Exception as e:
-            self.is_rebuilding = False
-            self.set_status(f"重建异常: {e}")
+            self.after(0, self._finish_rebuild, None, str(e))
+
+    def _finish_rebuild(self, code, err=""):
+        """重建收尾（在主线程执行）。"""
+        self.is_rebuilding = False
+        if err:
+            self.set_status(f"重建异常: {err}")
+        else:
+            self.set_status("重建成功" if code == 0 else "重建失败")
 
     # ── 重启服务 ──────────────────────────────────────
     def do_restart_service(self):
