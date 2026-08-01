@@ -138,3 +138,94 @@ def trash_file(ftype: str, filename: str) -> tuple[bool, str]:
         return True, f"已移动到 {TRASH_DIR.name}/{dest.name}"
     except Exception as e:
         return False, f"删除失败: {e}"
+
+
+# ── GUI ───────────────────────────────────────────────
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+SERVICE_STATUS: dict[str, str] = {}  # {"found": 服务名} 或 {"found": ""}
+
+
+def detect_service() -> str:
+    """探测 nssm 服务名，返回 RUNNING 的服务名；未找到返回空串。"""
+    for name in SERVICE_CANDIDATES:
+        try:
+            r = subprocess.run(
+                ["sc", "query", name], capture_output=True, text=True,
+                encoding="utf-8", errors="ignore", timeout=5)
+            if "RUNNING" in r.stdout.upper():
+                return name
+        except Exception:
+            continue
+    return ""
+
+
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("📚 MrMao 知识库编辑器")
+        self.geometry("1000x600")
+        self.minsize(820, 480)
+
+        self.status_var = tk.StringVar(value="就绪")
+        self.service_name = detect_service()
+
+        # 主分栏
+        paned = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
+        paned.pack(fill=tk.BOTH, expand=True, padx=8, pady=(8, 0))
+
+        # 左：文件树
+        left = ttk.Frame(paned)
+        paned.add(left, weight=3)
+        self.tree = ttk.Treeview(left, show="tree", selectmode="browse")
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        tree_scroll = ttk.Scrollbar(left, orient=tk.VERTICAL, command=self.tree.yview)
+        tree_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.configure(yscrollcommand=tree_scroll.set)
+
+        # 右：操作面板（后续任务填充）
+        right = ttk.Frame(paned)
+        paned.add(right, weight=5)
+        self.right = right
+
+        # 底部状态栏
+        status = ttk.Label(self, textvariable=self.status_var, anchor="w", relief=tk.SUNKEN)
+        status.pack(fill=tk.X, side=tk.BOTTOM, padx=8, pady=6)
+
+        self.refresh_tree()
+
+    # ── 文件树 ────────────────────────────────────────
+    def refresh_tree(self):
+        self.tree.delete(*self.tree.get_children())
+        data = list_kb_files()
+        labels = {"framework": "🧠 框架层（重启服务生效）", "corpus": "📖 语料库（重建向量库生效）"}
+        for key in ("framework", "corpus"):
+            parent = self.tree.insert("", "end", text=labels[key], open=True)
+            for item in data[key]:
+                flag = "🔒 " if item["readonly"] else ""
+                size_kb = item["size"] / 1024
+                size_txt = f"{size_kb:.0f}KB" if size_kb < 1024 else f"{size_kb/1024:.1f}MB"
+                self.tree.insert(parent, "end", text=f"{flag}{item['name']} ({size_txt})",
+                                 values=(key, item["name"], item["readonly"]))
+
+    def selected_file(self) -> tuple[str, str, bool] | None:
+        """返回选中的 (type, filename, readonly)，未选中或选中组节点返回 None。"""
+        sel = self.tree.selection()
+        if not sel:
+            return None
+        vals = self.tree.item(sel[0], "values")
+        if not vals:
+            return None
+        return vals[0], vals[1], vals[2] in (True, "True")
+
+    def set_status(self, msg: str):
+        self.status_var.set(msg)
+
+
+def main():
+    App().mainloop()
+
+
+if __name__ == "__main__":
+    main()
