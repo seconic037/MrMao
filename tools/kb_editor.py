@@ -928,3 +928,8 @@ class App(tk.Tk):
             self.kb_delete_items.append(sel)
             self.set_status(f"已标记删除：{sel['name']}（进入步骤③本次更改清单）")
         self.refresh_kb_tree()
+
+
+if __name__ == "__main__":
+    app = App()
+    app.mainloop()

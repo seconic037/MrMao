@@ -278,5 +278,13 @@ class TestServer(unittest.TestCase):
         finally:
             srv.close()
 
+class TestEntryPoint(unittest.TestCase):
+    def test_main_entry_exists(self):
+        """回归：双击 bat 直接运行 kb_editor.py 必须进入 mainloop（v2 曾丢失入口导致闪退）。"""
+        src = Path(__file__).resolve().parent.parent / "tools" / "kb_editor.py"
+        text = src.read_text(encoding="utf-8")
+        self.assertIn('if __name__ == "__main__":', text)
+        self.assertIn("app.mainloop()", text)
+
 if __name__ == "__main__":
     unittest.main()
