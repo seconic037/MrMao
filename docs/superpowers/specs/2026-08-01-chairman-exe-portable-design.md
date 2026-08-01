@@ -44,7 +44,7 @@ ChairMao游戏/                      ← 整个文件夹拷贝到任何 Windows 
 2. 校验 `python/python.exe` 与 `data/` 关键文件存在 → 缺失弹窗提示
 3. 校验 `.env` 中 API key：
    - `.env` 不存在 → 自动生成模板
-   - key 为空 → 打开浏览器引导页（`http://localhost:8000/setup` 或独立提示页）让用户填写并保存
+   - key 为空 → launcher 打开**独立本地引导页**（`launcher/setup.html`，不依赖服务）让用户填写并保存到 `.env`
 4. 探测端口：8000 被占用 → 自动选空闲端口
 5. 子进程启动 `python/python.exe app/run_server.py --port=<空闲端口>`
 6. 轮询 `http://localhost:<port>` 就绪（≤10s）→ `webbrowser.open`
@@ -99,7 +99,7 @@ ChairMao游戏/                      ← 整个文件夹拷贝到任何 Windows 
 **包含：**
 - 便携文件夹构建脚本（`build_package.py`）
 - launcher exe（`launcher/` 独立小项目）
-- 首次启动 API key 引导
+- 首次启动 API key 引导（独立本地 `setup.html`，不依赖服务）
 - 端口自适应
 - 使用说明.txt
 
