@@ -123,6 +123,8 @@ def create_file(ftype: str, filename: str, content: str) -> tuple[bool, str]:
 def trash_file(ftype: str, filename: str) -> tuple[bool, str]:
     """软删除：移动到 TRASH_DIR（同名加时间戳后缀）。只读文件拒绝。"""
     target_dir = MD_DIR if ftype == "framework" else TXT_DIR
+    if Path(filename).name != filename:
+        return False, "非法文件名"
     src = target_dir / filename
     if not src.exists():
         return False, f"文件不存在: {filename}"
@@ -247,8 +249,10 @@ class App(tk.Tk):
         self.rebuild_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=6)
         ttk.Button(rebuild_frame, text="▶ 开始重建", command=self.do_rebuild).pack(anchor=tk.W, padx=8, pady=(0, 6))
         self.is_rebuilding = False
+        self._rebuild_proc = None
 
         self.refresh_tree()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ── 检索 ──────────────────────────────────────────
     def do_search(self):
@@ -272,8 +276,9 @@ class App(tk.Tk):
             return
         line = self.search_list.get(sel[0])
         fname = line.split("（")[0].split(" ", 1)[1]
-        loc = "知识扩展" if "📖" in line else "knowledge/framework"
-        self.set_status(f"{fname} 位于 data/txt/{loc}/，共 " + line.split("（")[1])
+        hits = line.split("（")[1].rstrip("）")          # 形如 "25处"
+        loc = "data/txt/知识扩展/" if "📖" in line else "knowledge/framework/"
+        self.set_status(f"{fname} 位于 {loc}，共 {hits}")
 
     # ── 文件树 ────────────────────────────────────────
     def refresh_tree(self):
@@ -308,8 +313,8 @@ class App(tk.Tk):
         name = self.name_entry.get()
         content = self.content_text.get("1.0", tk.END).rstrip("\n")
         if not content.strip():
-            messagebox.showwarning("内容为空", "新文件内容为空，是否仍要创建？", parent=self)
-            # 允许创建空文件
+            if not messagebox.askyesno("内容为空", "新文件内容为空，是否仍要创建？", parent=self):
+                return
         ok, err = create_file(ftype, name, content)
         if not ok:
             messagebox.showerror("创建失败", err, parent=self)
@@ -359,6 +364,7 @@ class App(tk.Tk):
                 ["python", "run_pipeline.py"],
                 cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, encoding="utf-8", errors="replace")
+            self._rebuild_proc = proc
             assert proc.stdout is not None
             for line in proc.stdout:
                 self.after(0, self._append_rebuild, line)
@@ -375,6 +381,15 @@ class App(tk.Tk):
             self.set_status(f"重建异常: {err}")
         else:
             self.set_status("重建成功" if code == 0 else "重建失败")
+
+    def _on_close(self):
+        """关窗：若正在重建则终止子进程，避免 run_pipeline 残留为孤儿。"""
+        if getattr(self, "_rebuild_proc", None) is not None and self.is_rebuilding:
+            try:
+                self._rebuild_proc.terminate()
+            except Exception:
+                pass
+        self.destroy()
 
     # ── 重启服务 ──────────────────────────────────────
     def do_restart_service(self):
