@@ -208,6 +208,28 @@ class App(tk.Tk):
         self.search_list.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
         self.search_list.bind("<Double-Button-1>", lambda e: self._on_search_pick())
 
+        # 右侧：新建区
+        create_frame = ttk.LabelFrame(self.right, text="➕ 新建文件（一次性创建，不编辑现有内容）")
+        create_frame.pack(fill=tk.X, padx=8, pady=6)
+
+        row1 = ttk.Frame(create_frame)
+        row1.pack(fill=tk.X, padx=8, pady=(6, 2))
+        self.type_combo = ttk.Combobox(row1, state="readonly", width=14,
+                                       values=["🧠 框架 .md", "📖 语料 .txt"])
+        self.type_combo.current(0)
+        self.type_combo.pack(side=tk.LEFT)
+        self.name_entry = ttk.Entry(row1)
+        self.name_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(6, 0))
+
+        self.content_text = tk.Text(create_frame, height=8)
+        self.content_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
+
+        row2 = ttk.Frame(create_frame)
+        row2.pack(fill=tk.X, padx=8, pady=(0, 6))
+        ttk.Button(row2, text="创建文件", command=self.do_create).pack(side=tk.LEFT)
+        ttk.Button(row2, text="🗑 删除选中", command=self.do_delete).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(row2, text="🔄 刷新", command=self.refresh_tree).pack(side=tk.RIGHT)
+
         self.refresh_tree()
 
     # ── 检索 ──────────────────────────────────────────
@@ -261,6 +283,41 @@ class App(tk.Tk):
 
     def set_status(self, msg: str):
         self.status_var.set(msg)
+
+    # ── 新建 / 删除 ───────────────────────────────────
+    def do_create(self):
+        ftype = "framework" if "框架" in self.type_combo.get() else "corpus"
+        name = self.name_entry.get()
+        content = self.content_text.get("1.0", tk.END).rstrip("\n")
+        if not content.strip():
+            messagebox.showwarning("内容为空", "新文件内容为空，是否仍要创建？", parent=self)
+            # 允许创建空文件
+        ok, err = create_file(ftype, name, content)
+        if not ok:
+            messagebox.showerror("创建失败", err, parent=self)
+            return
+        self.set_status(f"已创建 {ftype}/{err}：" + ("重启服务后生效" if ftype == "framework" else "需重建向量库后生效"))
+        self.refresh_tree()
+        self.name_entry.delete(0, tk.END)
+        self.content_text.delete("1.0", tk.END)
+
+    def do_delete(self):
+        sel = self.selected_file()
+        if not sel:
+            self.set_status("请先在左侧选中一个文件")
+            return
+        ftype, fname, readonly = sel
+        if readonly:
+            messagebox.showwarning("只读文件", f"🔒 {fname} 为卷本/大文件，不可删除", parent=self)
+            return
+        if not messagebox.askyesno("确认删除", f"将把 {fname} 移动到 新知识放这里/_已删除/ 备份。\n确定？", parent=self):
+            return
+        ok, msg = trash_file(ftype, fname)
+        if not ok:
+            messagebox.showerror("删除失败", msg, parent=self)
+            return
+        self.set_status(f"已删除 {fname}：{msg}。" + ("重启服务后生效" if ftype == "framework" else "需重建向量库后生效"))
+        self.refresh_tree()
 
 
 def main():
