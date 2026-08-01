@@ -1,8 +1,8 @@
 # 📖 MrMao — 主席模拟器
 
-> **中文：** 基于毛泽东著作（毛选四卷+文集+诗词+建国文稿+39个知识扩展）的 AI 对话系统。**163万字语料库**，RAG 混合检索，两阶段推理引擎（先想后说），手机端 Web 界面。和老人家聊聊历史、哲学、时政与人生。
+> **中文：** 基于毛泽东著作（毛选四卷+文集+诗词+建国文稿+76个知识扩展）的 AI 对话系统。**6,339 个知识块**，RAG 混合检索，两阶段推理引擎（先想后说），手机端 Web 界面。和老人家聊聊历史、哲学、时政与人生。
 >
-> **English:** An AI-powered dialogue system based on Mao Zedong's complete works. **1.6M-character corpus**, hybrid RAG retrieval, two-stage reasoning engine (think→speak), mobile-friendly web UI. Chat with the Chairman about history, philosophy, politics, and life.
+> **English:** An AI-powered dialogue system based on Mao Zedong's complete works. **6,339 knowledge chunks**, hybrid RAG retrieval, two-stage reasoning engine (think→speak), mobile-friendly web UI. Chat with the Chairman about history, philosophy, politics, and life.
 
 ---
 
@@ -15,7 +15,7 @@
 
 ### 🧠 RAG 混合检索
 - **向量语义检索** + **BM25 关键词检索**双通道，RRF 融合排序
-- 从 2,547 个文本块中精准召回最相关的著作原文
+- 从 6,339 个知识块中精准召回最相关的著作原文
 - 聊天时实时引用出处（书名+日期），回答有据可查
 
 ### 📚 445 篇著作全文
@@ -23,7 +23,7 @@
 - 毛泽东诗词全集（74 首）、讲话与谈话
 - 分级目录阅读：分类 → 卷 → 篇名 → 全文
 
-### 🧩 39 个知识扩展
+### 🧩 76 个知识扩展
 | 类别 | 内容 |
 |------|------|
 | 📕 **马列经典** | 马克思核心观点、列宁帝国主义论、恩格斯自然辩证法、斯大林社会主义建设、政治经济学、科学社会主义、历史唯物主义 |
@@ -32,9 +32,18 @@
 | 🏥 **科技文化** | 中国传统医学、中国科技史、诗词鉴赏、成语典故 500 条 |
 | 🏛️ **哲学宗教** | 中国哲学史、西方哲学经典语录、宗教经典入门、世界文学名著 |
 
-### 🔥 实时热点
-- 首页展示百度热搜，点击可看 **200-300 字详细概述**
-- 看完热点可直接找主席聊聊看法
+### 📍 场景系统
+- 菊香书屋、丰泽园客厅、小路上、树下 **4 大场景**，切换带过场动画
+- 每场景独立气氛与动作库，主席会主动换话题、按场景调整状态
+- 室内「🍵续茶 / 🚬递烟」，室外「💧喝水 / 🍉歇脚」
+
+### 🎯 考考你
+- 对话中随机出题：哲学 / 党史 / 历史 / 诗词 / 军事 5 类 30 题
+- 场景会「偏科」出题，连对 3 / 5 / 7 题有主席的专属表扬
+
+### 🔥 热搜
+- 首页实时抓取百度热搜，自动过滤娱乐八卦，一键刷新
+- 点击看 **200-300 字详细概述**，看完直接找主席聊聊看法
 
 ### 📱 手机优先设计
 - 底部三标签栏（首页/聊天/阅读），微信式输入框
@@ -44,9 +53,16 @@
 - 35 轮后主席会犯困，显示「🟡累了」「🔴该休息了」
 - 点击「🍵续茶」「🚬递烟」一键压缩对话，恢复精神
 
-### 📋 聊天日志管理
-- 自动保存每次对话，支持历史回顾
-- 一键 AI 总结，编辑标题，删除记录
+### 📋 日志面板
+- 底部弹出层，分「当前会话」「历史记录」两个标签
+- 自动保存每次对话，一键 AI 总结，编辑标题，删除记录
+
+### 🎨 SVG 图标库
+- 全部界面图标改为内联 SVG，零图片资源，任意分辨率下依然锐利
+
+### 🗂️ 知识自动归类
+- 新知识丢进 `新知识放这里/`，运行 `python tools/ingest_knowledge.py` 自动归类
+- `.txt` → 语料库（重建向量索引）；`.md` → 框架层（重启服务即生效）
 
 ### 🔌 离线嵌入
 - 嵌入模型 `BAAI/bge-small-zh-v1.5` 本地运行，无需联网
@@ -72,7 +88,7 @@ python run_server.py           # 启动 http://localhost:8000
 ## 📁 项目结构
 
 ```
-├── data/txt/          # 语料库（毛选+文集+39个知识扩展）
+├── data/txt/          # 语料库（毛选+文集+76个知识扩展）
 ├── pipeline/          # 离线数据处理
 │   ├── txt_parser.py    # TXT 解析
 │   ├── chunker.py       # 文本分块
@@ -110,8 +126,8 @@ python run_server.py           # 启动 http://localhost:8000
 | 指标 | 数值 |
 |------|------|
 | 文章总数 | 445 篇 |
-| 文本块 | 2,547 块 |
-| 知识扩展 | 39 个文件 |
+| 知识文件 | 76 个 TXT + 2 个框架 MD |
+| 知识块 | 6,339 块 |
 | 语料总字数 | 163 万字 |
 
 ---
@@ -121,6 +137,20 @@ python run_server.py           # 启动 http://localhost:8000
 - 毛选四卷：求是网 (qstheory.cn) 公开资料
 - 毛泽东文集、建国后文稿：公开整理
 - 知识扩展：马克思/恩格斯/列宁/斯大林著作摘要、四书五经、世界史、中医、科技史等
+
+---
+
+## 📝 补充知识
+
+想给主席「补课」？把新知识丢进 `新知识放这里/`，然后运行：
+
+```bash
+python tools/ingest_knowledge.py
+```
+
+- `.txt` 文件 → 自动归类到 `data/txt/知识扩展/`（语料库，需重建向量索引）
+- `.md` 文件 → 自动归类到 `knowledge/framework/`（框架层，重启服务即生效）
+- 自动去重、归档已处理文件（`新知识放这里/_已处理/`），完成后打印当前知识库架构
 
 ---
 
@@ -138,3 +168,19 @@ python run_server.py           # 启动 http://localhost:8000
 - 命令行工具 `tools/ingest_knowledge.py` 与 `归并新知识.bat` 保留不变
 
 📄 详细介绍（功能+使用说明）：见 [`知识库编辑器介绍.md`](知识库编辑器介绍.md)
+
+---
+
+## 🔧 2026-08-01 全产品实测修复记录
+
+全产品端到端测试（基础对话/场景/日志/首页/UI/异常场景）期间修复的 Bug：
+
+### 前端 `web/static/app.js`
+1. **发送功能崩溃**：`loading` 等 12 个全局状态变量缺失声明，`send()` 首次执行抛 `ReferenceError: loading is not defined` → 顶部统一声明
+2. **页面双显示混叠**：`updateSceneUI()` 用 `page.className='page active scene-bg '+currentScene` 覆盖类名，刷新后 page-home 与 page-chat 同时 active → 改用 `classList` 操作 + 空值保护
+3. **历史记录模板未插值**：`showHistoryLogs`/`renderLogEdit` 在反引号模板字符串内混用 `'+I.summary+'` → 改为 `${I.summary}` 等
+4. **setScene 函数覆盖**：后定义的本地版 `setScene` 覆盖了含过渡动画的 async 版 → 删除重复定义，标签更新逻辑并入 `pickScene`
+
+### 后端 `web/app.py`
+5. **titles.json 永不保存**：`_save_titles()` 不接收调用方修改后的 titles 参数 → 改为 `_save_titles(titles)`
+6. **历史列表无预览**：`get_logs` 未返回主席最后一句预览 → 逐行读取日志取末条 chairman 消息

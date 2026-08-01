@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>主席模拟器</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=20260802b">
 </head>
 <body>
 <div class="app">
@@ -16,33 +16,41 @@
             <div class="home-hero">
                 <div class="home-portrait">📖</div>
                 <h2>和老人家聊聊</h2>
-                <p>毛泽东选集 · 文集 · 诗词 · 建国后文稿 · 406 篇</p>
+                <p>毛泽东选集 · 文集 · 诗词 · 建国后文稿 · 445 篇</p>
             <p class="home-stat" id="kbStat">知识库总量：加载中...</p>
                 <button class="home-enter" onclick="showEntryPanel()">和老人家聊聊</button>
             </div>
             <div class="hotspot-panel" id="hotspotPanel">
-                <div class="hotspot-header"><span>🔥 今日热议</span><span class="hotspot-source">百度热搜</span></div>
+                <div class="hotspot-header"><span>🔥 今日热议</span><span class="hotspot-source" id="hotspotSource">百度热搜</span><span class="hotspot-refresh" onclick="refreshHotspots()" title="刷新">🔄</span></div>
                 <div class="hotspot-list" id="hotspotList">加载中...</div>
             </div>
             <div class="home-topics" id="topicSection">
                 <h3>💬 试试这些</h3>
                 <div class="topic-list" id="topicList"></div>
             </div>
-            <div class="home-links">
-                <span onclick="openLogs()">📋 聊天日志</span>
-            </div>
         </div>
 
         <!-- 聊天页 -->
         <div class="page" id="page-chat">
+            <div class="chat-overlay"></div>
             <div class="stats-bar" id="stats">📊 等待对话...</div>
-            <div class="fatigue-bar green" id="fatigueBar">🟢 精神饱满</div>
+            <div class="fatigue-bar green" id="fatigueBar">老人家看上去精神饱满</div>
+            <div class="scene-bar" id="sceneBar">
+                <span class="scene-switch-btn" id="sceneSwitchBtn" onclick="showSceneSwitchPanel()" title="切换场景">📍</span>
+                <span class="scene-label" id="sceneLabel">📚 菊香书屋</span>
+                <span class="scene-toggle" id="sceneToggle" onclick="toggleSceneMode()"></span>
+            </div>
             <div class="compact-btns" id="compactBtns" style="display:none">
                 <button onclick="doCompact()">🍵 续茶</button>
                 <button onclick="doCompact()">🚬 递烟</button>
             </div>
-            <div class="chat-links"><span onclick="openLogs()">📋 聊天日志</span></div>
             <div class="chat-messages" id="chat"></div>
+            <div class="chat-actions" id="chatActions">
+                <button onclick="saveSession()" id="btnSave"></button>
+                <button onclick="findTopic()" id="btnTopic"></button>
+                <button onclick="askQuiz()" id="btnQuiz"></button>
+                <button onclick="askSaveLog()" id="btnExit"></button>
+            </div>
             <div class="chat-input">
                 <textarea id="msg" placeholder="随便问点什么..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
                 <button id="sendBtn" onclick="send()">发送</button>
@@ -64,13 +72,16 @@
     <!-- 底部标签栏 -->
     <nav class="tab-bar">
         <div class="tab active" onclick="switchTab('home')" id="tab-home">
-            <span class="tab-icon">🏠</span><span class="tab-label">首页</span>
+            <span class="tab-icon" id="homeIcon"></span><span class="tab-label">首页</span>
         </div>
-        <div class="tab" onclick="switchTab('chat')" id="tab-chat">
-            <span class="tab-icon">💬</span><span class="tab-label">聊天</span>
+        <div class="tab" onclick="toggleLogSheet()" id="tab-log">
+            <span class="tab-icon" id="logIcon"></span><span class="tab-label">日志</span>
+        </div>
+        <div class="tab" onclick="toggleSceneMode()" id="tab-scene">
+            <span class="tab-icon" id="sceneIcon"></span><span class="tab-label">场景</span>
         </div>
         <div class="tab" onclick="switchTab('read')" id="tab-read">
-            <span class="tab-icon">📚</span><span class="tab-label">阅读</span>
+            <span class="tab-icon" id="readIcon"></span><span class="tab-label">阅读</span>
         </div>
     </nav>
     <!-- 热点弹窗 -->
@@ -85,7 +96,44 @@
             </div>
         </div>
     </div>
-    <div class="log-panel" id="logPanel" style="display:none"></div>
+    <!-- 日志底部弹出层 -->
+    <div class="log-sheet" id="logSheet">
+        <div class="log-sheet-handle">
+            <span onclick="toggleLogSheet()" style="cursor:pointer">✕ 关闭</span>
+            <span>📋 聊天日志</span>
+            <span class="log-expand-hint" onclick="toggleLogFull()">▲</span>
+        </div>
+        <div class="log-tabs">
+            <span class="log-tab active" onclick="showCurrentLogTab()">当前会话</span>
+            <span class="log-tab" onclick="showHistoryLogs()">历史记录</span>
+        </div>
+        <div class="log-body" id="logBody"></div>
+    </div>
+    <div class="log-backdrop" id="logBackdrop" onclick="toggleLogSheet()"></div>
+    <!-- 场景选择弹窗 -->
+    <div class="modal-overlay" id="sceneModal" style="display:none">
+        <div class="modal-content">
+            <h3>📖 选择场景</h3>
+            <div class="scene-pick-list">
+                <div class="scene-pick" onclick="pickScene('shuwu','📚 菊香书屋')">📚 菊香书屋</div>
+                <div class="scene-pick" onclick="pickScene('keting','🛋️ 丰泽园客厅')">🛋️ 丰泽园客厅</div>
+                <div class="scene-pick" onclick="pickScene('xiaolu','🌳 小路上')">🌳 小路上</div>
+                <div class="scene-pick" onclick="pickScene('shuxia','🌿 树下')">🌿 树下</div>
+                <div class="scene-pick" onclick="pickSceneRandom()">🎲 随缘</div>
+            </div>
+        </div>
+    </div>
+    <!-- 场景主动切换面板（问题 1） -->
+    <div class="modal-overlay" id="sceneSwitchModal" style="display:none">
+        <div class="modal-content">
+            <h3>🌏 切换场景</h3>
+            <p id="sceneSwitchPrompt" style="font-size:14px;color:var(--text-light);margin-bottom:14px"></p>
+            <div class="scene-pick-list" id="sceneSwitchList"></div>
+            <div class="modal-btns" style="margin-top:12px">
+                <button class="scene-switch-cancel" onclick="closeSceneSwitchModal()">↩ 先不换</button>
+            </div>
+        </div>
+    </div>
     <!-- 入口选择弹窗 -->
     <div class="modal-overlay" id="entryModal" style="display:none">
         <div class="modal-content">
@@ -105,7 +153,11 @@
             </div>
         </div>
     </div>
+    <!-- 场景过渡层 -->
+    <div class="scene-transition" id="sceneTransition" style="display:none">
+        <div class="scene-transition-text" id="sceneTransitionText"></div>
+    </div>
 </div>
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=20260802c"></script>
 </body>
 </html>

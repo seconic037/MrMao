@@ -1,20 +1,25 @@
-"""毛式推理引擎：加载 book-to-skill 知识库 + RAG 结果 → 生成分析 Prompt。"""
-import os
+"""毛式推理引擎：加载 knowledge/framework/ 下全部 MD → 注入 think prompt。"""
+import os, glob
 from jinja2 import Environment, FileSystemLoader
 
 
 class MaoReasoningEngine:
-    def __init__(self, knowledge_path="knowledge/maozedong-knowledge-base.md", prompt_dir="reasoning/prompts"):
-        self.knowledge_path = knowledge_path
+    def __init__(self, framework_dir="knowledge/framework", prompt_dir="reasoning/prompts"):
+        self.framework_dir = framework_dir
         self._knowledge_base = self._load_knowledge()
         self._jinja_env = Environment(loader=FileSystemLoader(prompt_dir), trim_blocks=True, lstrip_blocks=True)
 
     def _load_knowledge(self):
-        if os.path.exists(self.knowledge_path):
-            with open(self.knowledge_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            if len(content) > 200:
-                return content
+        """读取 knowledge/framework/ 下所有 MD 文件合并为知识库。"""
+        md_files = sorted(glob.glob(f"{self.framework_dir}/*.md"))
+        parts = []
+        for f in md_files:
+            with open(f, 'r', encoding='utf-8') as fh:
+                content = fh.read()
+            if len(content) > 100:
+                parts.append(content)
+        if parts:
+            return "\n\n---\n\n".join(parts)
         return self._default_knowledge()
 
     def _default_knowledge(self):
@@ -43,8 +48,9 @@ class MaoReasoningEngine:
             memories=memories or []
         )
 
-    def build_speak_prompt(self, question, thinking_result):
+    def build_speak_prompt(self, question, thinking_result, scene_context=None):
         return self._jinja_env.get_template("speak.jinja2").render(
             question=question,
-            thinking_result=thinking_result
+            thinking_result=thinking_result,
+            scene=scene_context or {},
         )

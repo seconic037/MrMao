@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 .superpowers/
 .reasonix/
+聊天记录/
 data/logs/
 data/extracted/
 data/chroma_v*/

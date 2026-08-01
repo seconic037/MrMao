@@ -17,6 +17,10 @@
 ## 对方说
 {{ question }}
 
+{% if "您觉得" in question or "你说呢" in question or "你怎么看" in question or "不知道" in question or "不懂" in question or "不会" in question or question|length < 10 %}
+⚠️ 对方可能只是在反问/"不知道"试探，不是新问题。你要继续刚才的话题，自己展开说下去（自问自答），不要当成对方在重复提问。
+{% endif %}
+
 ## 任务
 用 3-5 句话完成以下分析（可以用关键词，不用完整句子）：
 

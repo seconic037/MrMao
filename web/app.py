@@ -15,6 +15,15 @@ from openai import OpenAI
 from rag.retriever import Retriever
 from reasoning.framework import MaoReasoningEngine
 from pipeline.embed_and_store import load_collection
+from pipeline.scenes import (
+    get_scene, pick_action, pick_idle_actions, pick_exit_message,
+    detect_switch_intent, get_transition, get_scene_entities_flat,
+    get_switch_options, DEFAULT_SCENE, SCENES,
+    FATIGUE_ACTIONS as SCENE_FATIGUE_ACTIONS,
+)
+from pipeline.game_engine import (
+    pick_question, check_answer, should_quiz, STREAK_PRAISE,
+)
 
 # ── 环境变量 ──────────────────────────────────────────────
 CHROMA_DIR = os.getenv("CHROMA_PERSIST_DIR", "./data/chroma_v2")
@@ -35,6 +44,12 @@ try:
     col = load_collection(persist_dir=CHROMA_DIR, collection_name="maozedong-works", model_name=EMBEDDING_MODEL)
     retriever = Retriever(col)
     print(f"RAG loaded: {col.count()} docs")
+    # 生成 NPC 知识库情况文件（服务启动时自动刷新）
+    try:
+        from rag.knowledge_usage import generate_knowledge_usage
+        generate_knowledge_usage(col, model_name=EMBEDDING_MODEL, persist_dir=CHROMA_DIR)
+    except Exception as ke:
+        print(f"WARN: knowledge_usage 生成失败 — {ke}")
 except Exception as e:
     print(f"WARN: RAG unavailable — {e}")
 
@@ -52,9 +67,15 @@ session_title: str = ""
 session_log_file: Path = None
 FATIGUE_YELLOW = 21
 FATIGUE_RED = 35
-TIMEOUT_SECONDS = 15 * 60  # 15 分钟无操作自动保存
+TIMEOUT_SECONDS = 10 * 60  # 10 分钟无操作 → 主席离开
+TIMEOUT_WARN = 8 * 60      # 8 分钟无操作 → 疲倦预警
+session_scene: str = DEFAULT_SCENE
+pending_quiz_id: int | None = None
+quiz_asked_ids: set[int] = set()
+quiz_streak: int = 0
+quiz_count: int = 0
 
-LOG_DIR = Path("data/logs")
+LOG_DIR = Path("聊天记录")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 TITLES_FILE = LOG_DIR / "titles.json"
 
@@ -99,6 +120,9 @@ class ChatResp(BaseModel):
     tokens: int = 0
     cumulative_tokens: int = 0
     fatigue: str = "green"
+    scene_switch: Optional[dict] = None
+    quiz: Optional[dict] = None      # 出题：{q, opts[], id}
+    quiz_result: Optional[dict] = None  # 答题结果：{correct, msg, streak}
 
 # ── 内容 ──────────────────────────────────────────────────
 GREETINGS = [
@@ -108,20 +132,43 @@ GREETINGS = [
     "我刚写了首词，你要不要看看？",
 ]
 
+# 场景切换后 NPC 开场白兜底（LLM 偶发返回空时使用，问题 6）
+FALLBACK_TOPICS = {
+    "shuwu": "这满屋子的书，够咱们聊个三天三夜。方才那个话头，你心里有主意了没有？",
+    "keting": "屋里清静，正好说话。方才说到的事，你回去想过了没有？",
+    "xiaolu": "这小路走着走着，人就清爽了。刚才的话头，咱们边走边聊。",
+    "shuxia": "树荫底下坐坐，心也就静了。方才那事儿，你琢磨出什么道道没有？",
+}
+
 IDLE_ACTIONS = [
     "[主席抽了口烟，等你开口]",
     "[老人家端起搪瓷杯，喝了口浓茶]",
     "[主席靠在藤椅上，目光望向窗外]",
-    "[老人家拿笔在纸上写了几个字，又划掉了]",
-    "[主席翻了翻手边的毛选]",
-    "[老人家站起来在屋里踱了两步]",
+    "[老人家提起铅笔，在一份文件上批了几个字]",
+    "[主席站起来，走到墙边的大地图前看了看]",
+    "[老人家摘下眼镜，用衣角擦了擦]",
     "[主席掐灭烟头，若有所思地看着你]",
-    "[老人家微笑了一下，等着你继续]",
+    "[老人家翻开《资治通鉴》，看了两行]",
+    "[主席站起身在屋里缓缓踱了两步]",
+    "[老人家微笑着，手指轻轻敲着桌面]",
+    "[主席往搪瓷杯里续了热水，杯口冒着白气]",
+    "[老人家拿起红铅笔，在《人民日报》上画了个圈]",
 ]
 
 FATIGUE_ACTIONS = {
-    "yellow": ["[主席揉了揉太阳穴]", "[老人家喝了口浓茶提神]"],
-    "red": ["[主席打了个哈欠]", "[老人家眼皮有点沉]", "[主席的烟灰缸里已经堆满了烟头]"],
+    "yellow": [
+        "[主席揉了揉太阳穴]",
+        "[老人家放下手里的文件，闭了会儿眼]",
+        "[主席端起搪瓷杯，喝完最后一口浓茶]",
+        "[老人家把烟头掐灭，烟灰缸里已经四五个烟蒂了]",
+    ],
+    "red": [
+        "[主席打了个哈欠，眼皮有点沉]",
+        "[老人家身子往藤椅里靠了靠，快睡着了]",
+        "[主席的烟灰缸里已经堆满了烟头，他又续了一支]",
+        "[老人家摆了摆手，像是说今天就到这儿吧]",
+        "[主席摘下眼镜放到一旁，背靠在椅子上]",
+    ],
 }
 
 # ── 工具函数 ─────────────────────────────────────────────
@@ -136,6 +183,7 @@ def _write_log(role: str, content: str, tokens_in: int = 0, tokens_out: int = 0)
     entry = {"role": role, "content": content, "time": datetime.now().isoformat(), "tokens_in": tokens_in, "tokens_out": tokens_out}
     session_log.append(entry)
     last_activity = time.time()
+    _flush_log()  # 实时刷盘，意外退出不丢数据
 
 def _generate_summary(question: str, answer: str) -> dict:
     """用 LLM 生成对话摘要。"""
@@ -180,7 +228,142 @@ async def greeting():
 
 @app.get("/api/idle-actions")
 async def idle_actions():
-    return {"actions": random.sample(IDLE_ACTIONS, min(3, len(IDLE_ACTIONS)))}
+    fatigue = _fatigue_level()
+    actions = pick_idle_actions(session_scene, fatigue, 3)
+    return {"actions": actions, "scene": session_scene}
+
+@app.post("/api/scene/set")
+async def scene_set(data: dict):
+    """切换场景。"""
+    global session_scene
+    scene_id = data.get("scene", DEFAULT_SCENE)
+    if scene_id not in SCENES:
+        raise HTTPException(400, f"未知场景: {scene_id}")
+    old_scene = session_scene
+    session_scene = scene_id
+    scene = get_scene(scene_id)
+    transition = get_transition(old_scene, scene_id)
+    return {
+        "scene": scene_id,
+        "name": scene["name"],
+        "atmosphere": scene["atmosphere"],
+        "transition": transition,
+    }
+
+@app.get("/api/scene/get")
+async def scene_get():
+    """获取当前场景。"""
+    scene = get_scene(session_scene)
+    return {
+        "scene": session_scene,
+        "name": scene["name"],
+        "atmosphere": scene["atmosphere"],
+    }
+
+@app.post("/api/scene/transition")
+async def scene_transition(data: dict):
+    """获取两个场景之间的过渡信息。"""
+    from_s = data.get("from", session_scene)
+    to_s = data.get("to", DEFAULT_SCENE)
+    transition = get_transition(from_s, to_s)
+    if not transition:
+        return {"transition": None}
+    return {"transition": transition}
+
+@app.get("/api/scene/exit")
+async def scene_exit():
+    """生成主席离开语。"""
+    scene = get_scene(session_scene)
+    # 尝试生成话题总结
+    summary = ""
+    if session_memories:
+        last = session_memories[-1]
+        summary = last.get("summary", last.get("question", ""))[:40]
+    msg = pick_exit_message(session_scene, summary)
+    return {"message": msg, "scene": session_scene, "name": scene["name"]}
+
+@app.get("/api/scene/suggest")
+async def scene_suggest():
+    """主席提议切换场景（冷场时调用）。"""
+    scene = get_scene(session_scene)
+    is_indoor = scene["type"].startswith("indoor")
+    if is_indoor:
+        target = random.choice(["xiaolu", "shuxia"])
+        msg = random.choice([
+            "小鬼，坐了这么久，陪我到外面走走？",
+            "同志，屋里闷得很，出去透透气吧。",
+            "走，到外面去，边走边聊。",
+        ])
+    else:
+        target = random.choice(["shuwu", "keting"])
+        msg = random.choice([
+            "起风了，进屋坐吧。",
+            "外面有点凉了，我们进屋里聊。",
+        ])
+    return {"message": msg, "target": target, "scene": session_scene}
+
+@app.get("/api/scene/switch-options")
+async def scene_switch_options():
+    """主动切换面板数据：文案 + 可去目标（问题 1）。"""
+    return get_switch_options(session_scene)
+
+@app.post("/api/scene/fatigue-hint")
+async def scene_fatigue_hint():
+    """返回当前（新）场景的疲劳提示文字（问题 7：切换后提示）。"""
+    scene = get_scene(session_scene)
+    io = "indoor" if scene["type"].startswith("indoor") else "outdoor"
+    level = _fatigue_level()
+    pool = SCENE_FATIGUE_ACTIONS.get(io, {}).get(level, [])
+    return {
+        "hint": random.choice(pool) if pool else "",
+        "level": level,
+        "scene": session_scene,
+        "name": scene["name"],
+    }
+
+@app.post("/api/scene/topic")
+async def scene_topic():
+    """切换场景后，主席主动提开场话题（问题 6，LLM 生成，可附带随机出题）。"""
+    if not llm:
+        return {"topic": "", "quiz": None}
+    scene = get_scene(session_scene)
+    # 最近对话记忆（取最近 3 条；兼容 dict 与 str 两种存储格式）
+    mem = ""
+    if session_memories:
+        mem_items = []
+        for m in session_memories[-3:]:
+            if isinstance(m, dict):
+                q = str(m.get("question", ""))[:40]
+                s = str(m.get("summary", ""))[:60]
+            else:
+                q, s = "", str(m)[:60]
+            if q or s:
+                mem_items.append(f"对方问过「{q}」，你当时说「{s}」")
+        mem = "；".join(mem_items)
+    entities = "、".join(get_scene_entities_flat(session_scene)[:6])
+    prompt = (
+        f"你是毛泽东，刚刚和对方一起到了新地方——{scene['name']}（{scene['type']}）。\n"
+        f"场景氛围：{scene['atmosphere']}\n"
+        f"身边的事物：{entities}\n"
+        + (f"最近聊过：{mem}\n" if mem else "")
+        + "请以毛泽东的口吻说 2~3 句开场白：先结合当前场景说一句眼前的景象或感受，"
+        "再自然接一句和刚才话题相关的话（如果刚才聊过的话；没有就随意从场景引出一个话题），"
+        "最后可以留一个钩子让对方接话。不要用「现在」「我们」等翻译腔。直接说话，不要带方括号动作。"
+    )
+    topic = ""
+    try:
+        resp = llm.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.85, max_tokens=220
+        )
+        topic = (resp.choices[0].message.content or "").strip()
+    except Exception as e:
+        print(f"Scene topic failed: {e}")
+    # LLM 偶发返回空/单字 → 本地兜底，保证 NPC 话题完整不缺席
+    if not topic or len(topic) < 20:
+        topic = FALLBACK_TOPICS.get(session_scene, FALLBACK_TOPICS[DEFAULT_SCENE])
+    return {"topic": topic, "quiz": _maybe_quiz()}
 
 @app.get("/api/logs")
 async def get_logs():
@@ -188,8 +371,24 @@ async def get_logs():
     sessions = []
     for f in sorted(LOG_DIR.glob("session_*.jsonl"), reverse=True):
         t = titles.get(f.name, {})
+        # 取最后一条主席消息作为两行预览
+        preview = ""
+        try:
+            with open(f, encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                        if entry.get("role") == "chairman" and entry.get("content"):
+                            preview = entry["content"]
+                    except Exception:
+                        continue
+        except Exception:
+            pass
         sessions.append({"name": f.name, "size": f.stat().st_size, "time": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
-                        "title": t.get("title", ""), "rounds": t.get("rounds", 0)})
+                        "title": t.get("title", ""), "rounds": t.get("rounds", 0), "preview": preview[:60]})
     return {"sessions": sessions, "current": str(session_log_file.name) if session_log_file else "",
             "entries": session_log[-100:], "active_rounds": round_count, "active_title": session_title}
 
@@ -197,7 +396,7 @@ async def get_logs():
 async def delete_log(filename: str):
     """删除指定日志文件。"""
     path = LOG_DIR / filename
-    if path.exists() and "session_" in filename:
+    if path.exists() and "session_" in filename and ".." not in filename:
         path.unlink()
         return {"deleted": filename}
     raise HTTPException(404, "文件不存在")
@@ -226,23 +425,27 @@ _hotspots_time: float = 0
 
 @app.get("/api/hotspots")
 async def hotspots():
-    """百度热搜，缓存 10 分钟。"""
+    """百度热搜，缓存 5 分钟。"""
     global _hotspots_cache, _hotspots_time
     import time as _t
     now = _t.time()
-    if _hotspots_cache and now - _hotspots_time < 600:
-        return {"hotspots": _hotspots_cache}
+    if _hotspots_cache and now - _hotspots_time < 300:
+        return _hotspots_cache
+    from pipeline.hotspot_fetcher import fetch_baidu_hotspots
+    data = fetch_baidu_hotspots(limit=15)
     _hotspots_time = now
-    if not _hotspots_cache:
-        _hotspots_cache = [
-            {"title": "中共中央召开党外人士座谈会", "tag": "置顶"},
-            {"title": "重庆彭水山体崩塌已确认51人遇难", "tag": "热"},
-            {"title": "空调一直开vs忍着不开 谁更健康", "tag": "沸"},
-            {"title": "一组数据读懂我国能源转型新趋势", "tag": ""},
-            {"title": "超强台风白海豚最新路径来了", "tag": ""},
-            {"title": "南部战区位中国黄岩岛组织战备警巡", "tag": "热"},
-        ]
-    return {"hotspots": _hotspots_cache}
+    _hotspots_cache = data
+    return data
+
+@app.post("/api/hotspots/refresh")
+async def refresh_hotspots():
+    """强制刷新热搜。"""
+    global _hotspots_cache, _hotspots_time
+    from pipeline.hotspot_fetcher import fetch_baidu_hotspots
+    import time as _t
+    _hotspots_time = _t.time()
+    _hotspots_cache = fetch_baidu_hotspots(limit=15)
+    return _hotspots_cache
 
 
 @app.get("/api/kb-stats")
@@ -255,6 +458,13 @@ async def kb_stats():
         except: pass
     return {"word_count": total, "word_count_wan": round(total / 10000)}
 
+@app.get("/api/knowledge/structure")
+async def knowledge_structure():
+    """查看知识库架构。"""
+    import subprocess
+    result = subprocess.run(["python", "tools/ingest_knowledge.py"], capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=".")
+    return {"output": result.stdout or (result.stderr or "无输出")}
+
 
 # ── 会话管理 ──────────────────────────────────────────
 def _ensure_log_file():
@@ -262,11 +472,12 @@ def _ensure_log_file():
     if session_log_file is None:
         session_log_file = LOG_DIR / f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jsonl"
 
-def _save_titles():
-    titles = {}
-    if TITLES_FILE.exists():
-        try: titles = json.loads(open(TITLES_FILE, encoding="utf-8").read())
-        except: pass
+def _save_titles(titles=None):
+    if titles is None:
+        titles = {}
+        if TITLES_FILE.exists():
+            try: titles = json.loads(open(TITLES_FILE, encoding="utf-8").read())
+            except: pass
     open(TITLES_FILE, "w", encoding="utf-8").write(json.dumps(titles, ensure_ascii=False))
 
 def _load_titles():
@@ -311,7 +522,7 @@ async def session_save(title: str = ""):
     session_title = title or datetime.now().strftime("%m/%d %H:%M")
     titles = _load_titles()
     titles[session_log_file.name] = {"title": session_title, "rounds": round_count, "time": datetime.now().isoformat()}
-    _save_titles()
+    _save_titles(titles)
     # 重置会话
     session_log = []; session_memories = []; round_count = 0; total_tokens = 0; last_activity = 0
     session_log_file = None
@@ -327,12 +538,41 @@ async def session_discard():
     session_log_file = None
     return {"discarded": True}
 
+@app.get("/api/logs/entries")
+async def get_log_entries(filename: str = ""):
+    """读取指定日志文件的全部条目（用于恢复历史消息）。"""
+    path = LOG_DIR / filename
+    if not path.exists() or "session_" not in filename or ".." in filename:
+        raise HTTPException(404, "文件不存在")
+    entries = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                entries.append(json.loads(line))
+    return {"entries": entries}
+
+@app.post("/api/logs/entries/update")
+async def update_log_entries(payload: dict):
+    """保存编辑后的日志条目（删除/新增后写回文件）。"""
+    filename = str(payload.get("filename", ""))
+    entries = payload.get("entries")
+    if not isinstance(entries, list) or "session_" not in filename or ".." in filename:
+        raise HTTPException(400, "参数无效")
+    path = LOG_DIR / filename
+    if not path.exists():
+        raise HTTPException(404, "文件不存在")
+    with open(path, "w", encoding="utf-8") as f:
+        for e in entries:
+            f.write(json.dumps(e, ensure_ascii=False) + "\n")
+    return {"ok": True}
+
 @app.post("/api/session/title")
 async def set_title(filename: str = "", title: str = ""):
     """编辑日志标题。"""
     titles = _load_titles()
-    titles[filename] = {"title": title, "time": titles.get(filename, {}).get("time", "")}
-    _save_titles()
+    titles[filename] = {**titles.get(filename, {}), "title": title}
+    _save_titles(titles)
     return {"ok": True}
 
 @app.post("/api/session/summarize")
@@ -340,7 +580,7 @@ async def summarize_log(filename: str = ""):
     """一键总结指定日志文件的对话内容。"""
     if not llm: raise HTTPException(503, "LLM 未配置")
     path = LOG_DIR / filename
-    if not path.exists() or "session_" not in filename:
+    if not path.exists() or "session_" not in filename or ".." in filename:
         raise HTTPException(404, "文件不存在")
     content = path.read_text(encoding="utf-8")
     resp = llm.chat.completions.create(
@@ -382,6 +622,22 @@ async def catalog():
     ]
     return {"catalog": cats, "topics": random.sample(RANDOM_TOPICS, 4)}
 
+def _maybe_quiz() -> dict | None:
+    """判断是否应该出题。"""
+    global pending_quiz_id, quiz_asked_ids, quiz_count
+    if not should_quiz(round_count, quiz_count):
+        return None
+    q = pick_question(session_scene, quiz_asked_ids)
+    if not q:
+        quiz_asked_ids.clear()
+        q = pick_question(session_scene, quiz_asked_ids)
+        if not q:
+            return None
+    pending_quiz_id = q["id"]
+    quiz_asked_ids.add(q["id"])
+    quiz_count += 1
+    return {"q": q["q"], "opts": q["opts"], "id": q["id"]}
+
 @app.get("/api/read")
 async def read_article(source: str = "", title: str = ""):
     """读取单篇著作原文。"""
@@ -418,6 +674,7 @@ async def list_articles(source: str = ""):
 @app.post("/api/chat", response_model=ChatResp)
 async def chat(req: ChatReq):
     global total_tokens, round_count, session_memories, recent_qa
+    global pending_quiz_id, quiz_asked_ids, quiz_streak, quiz_count
     if not llm:
         raise HTTPException(503, "LLM 未配置")
     if req.message == "__greeting__":
@@ -426,6 +683,30 @@ async def chat(req: ChatReq):
     round_count += 1
     fatigue = _fatigue_level()
     _write_log("user", req.message)
+
+    # ── 检测 quiz 答题 ──
+    quiz_result = None
+    if pending_quiz_id is not None:
+        try:
+            user_ans = int(req.message.strip())
+        except ValueError:
+            user_ans = -1
+        if 0 <= user_ans <= 2:
+            result = check_answer(pending_quiz_id, user_ans)
+            if result["correct"]:
+                quiz_streak += 1
+                # 连对特殊表扬
+                streak_msg = STREAK_PRAISE.get(quiz_streak, "")
+                if streak_msg:
+                    result["msg"] = streak_msg + " " + result["msg"]
+            else:
+                quiz_streak = 0
+            quiz_result = {"correct": result["correct"], "msg": result["msg"], "streak": quiz_streak}
+            pending_quiz_id = None
+            return ChatResp(answer=result["msg"], fatigue=fatigue, quiz_result=quiz_result)
+
+    # 非答题 → 清除 pending
+    pending_quiz_id = None
 
     # 检测超时
     if last_activity and (time.time() - last_activity) > TIMEOUT_SECONDS:
@@ -445,13 +726,20 @@ async def chat(req: ChatReq):
     thinking = think_resp.choices[0].message.content
     t1 = think_resp.usage.total_tokens if think_resp.usage else 0
 
-    # 阶段 2：表达
-    speak_prompt = engine.build_speak_prompt(req.message, thinking)
+    # 阶段 2：表达（注入场景上下文）
+    scene = get_scene(session_scene)
+    scene_context = {
+        "name": scene["name"],
+        "atmosphere": scene["atmosphere"],
+        "type": scene["type"],
+        "entities": get_scene_entities_flat(session_scene),
+    }
+    speak_prompt = engine.build_speak_prompt(req.message, thinking, scene_context=scene_context)
     speak_resp = llm.chat.completions.create(
         model=LLM_MODEL,
         messages=[{"role": "system", "content": "你是毛泽东本人，在和别人聊天。说话要有你的风格。"},
                   {"role": "user", "content": speak_prompt}],
-        temperature=0.9, max_tokens=400
+        temperature=0.9, max_tokens=600
     )
     answer = speak_resp.choices[0].message.content
     t2 = speak_resp.usage.total_tokens if speak_resp.usage else 0
@@ -459,6 +747,14 @@ async def chat(req: ChatReq):
     total_tokens += tokens_used
 
     _write_log("chairman", answer, tokens_used, 0)
+
+    # 场景切换检测
+    scene_switch = None
+    switch_target = detect_switch_intent(req.message, session_scene)
+    if switch_target and switch_target != session_scene:
+        scene_switch = get_transition(session_scene, switch_target)
+        if scene_switch:
+            scene_switch["target"] = switch_target
 
     # 生成摘要加入记忆
     summary = _generate_summary(req.message, answer)
@@ -471,5 +767,7 @@ async def chat(req: ChatReq):
         sources=[{"text": r.text[:200], "source": r.source, "title": r.title, "date": r.date, "score": r.score} for r in rags],
         tokens=tokens_used,
         cumulative_tokens=total_tokens,
-        fatigue=fatigue
+        fatigue=fatigue,
+        scene_switch=scene_switch,
+        quiz=_maybe_quiz(),
     )
