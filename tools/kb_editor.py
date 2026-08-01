@@ -193,7 +193,47 @@ class App(tk.Tk):
         status = ttk.Label(self, textvariable=self.status_var, anchor="w", relief=tk.SUNKEN)
         status.pack(fill=tk.X, side=tk.BOTTOM, padx=8, pady=6)
 
+        # 右侧：检索区
+        search_frame = ttk.LabelFrame(self.right, text="🔍 检索命中文件")
+        search_frame.pack(fill=tk.X, padx=8, pady=(8, 6))
+
+        search_row = ttk.Frame(search_frame)
+        search_row.pack(fill=tk.X, padx=8, pady=6)
+        self.search_entry = ttk.Entry(search_row)
+        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.search_entry.bind("<Return>", lambda e: self.do_search())
+        ttk.Button(search_row, text="检索", command=self.do_search).pack(side=tk.LEFT, padx=(6, 0))
+
+        self.search_list = tk.Listbox(search_frame, height=8)
+        self.search_list.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
+        self.search_list.bind("<Double-Button-1>", lambda e: self._on_search_pick())
+
         self.refresh_tree()
+
+    # ── 检索 ──────────────────────────────────────────
+    def do_search(self):
+        query = self.search_entry.get().strip()
+        self.search_list.delete(0, tk.END)
+        if not query:
+            self.set_status("请输入关键词")
+            return
+        results = search_files(query)
+        if not results:
+            self.set_status(f"“{query}” 无命中")
+            return
+        for key, fname, hits in results:
+            tag = "🧠" if key == "framework" else "📖"
+            self.search_list.insert(tk.END, f"{tag} {fname}（{hits}处）")
+        self.set_status(f"命中 {len(results)} 个文件")
+
+    def _on_search_pick(self):
+        sel = self.search_list.curselection()
+        if not sel:
+            return
+        line = self.search_list.get(sel[0])
+        fname = line.split("（")[0].split(" ", 1)[1]
+        loc = "知识扩展" if "📖" in line else "knowledge/framework"
+        self.set_status(f"{fname} 位于 data/txt/{loc}/，共 " + line.split("（")[1])
 
     # ── 文件树 ────────────────────────────────────────
     def refresh_tree(self):
