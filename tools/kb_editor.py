@@ -171,6 +171,16 @@ class App(tk.Tk):
         self.status_var = tk.StringVar(value="就绪")
         self.service_name = detect_service()
 
+        # 顶栏：服务器标签 + 重启服务按钮
+        top = ttk.Frame(self)
+        top.pack(fill=tk.X, padx=8, pady=(6, 0))
+        ttk.Label(top, text="服务器：本机", font=("", 10, "bold")).pack(side=tk.LEFT)
+        self.restart_btn = ttk.Button(top, text="🔁 重启服务", command=self.do_restart_service)
+        self.restart_btn.pack(side=tk.RIGHT)
+        self.restart_btn.state(["disabled"] if not self.service_name else ["!disabled"])
+        if self.service_name:
+            self.set_status(f"已检测到服务 {self.service_name}")
+
         # 主分栏
         paned = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
         paned.pack(fill=tk.BOTH, expand=True, padx=8, pady=(8, 0))
@@ -229,6 +239,14 @@ class App(tk.Tk):
         ttk.Button(row2, text="创建文件", command=self.do_create).pack(side=tk.LEFT)
         ttk.Button(row2, text="🗑 删除选中", command=self.do_delete).pack(side=tk.LEFT, padx=(8, 0))
         ttk.Button(row2, text="🔄 刷新", command=self.refresh_tree).pack(side=tk.RIGHT)
+
+        # 右侧：重建向量库进度区
+        rebuild_frame = ttk.LabelFrame(self.right, text="🔄 重建向量库（语料变更后 3-10 分钟）")
+        rebuild_frame.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 8))
+        self.rebuild_text = tk.Text(rebuild_frame, height=10, state=tk.DISABLED)
+        self.rebuild_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=6)
+        ttk.Button(rebuild_frame, text="▶ 开始重建", command=self.do_rebuild).pack(anchor=tk.W, padx=8, pady=(0, 6))
+        self.is_rebuilding = False
 
         self.refresh_tree()
 
@@ -318,6 +336,53 @@ class App(tk.Tk):
             return
         self.set_status(f"已删除 {fname}：{msg}。" + ("重启服务后生效" if ftype == "framework" else "需重建向量库后生效"))
         self.refresh_tree()
+
+    # ── 重建向量库 ────────────────────────────────────
+    def _append_rebuild(self, line: str):
+        self.rebuild_text.configure(state=tk.NORMAL)
+        self.rebuild_text.insert(tk.END, line)
+        self.rebuild_text.see(tk.END)
+        self.rebuild_text.configure(state=tk.DISABLED)
+
+    def do_rebuild(self):
+        if self.is_rebuilding:
+            self.set_status("重建进行中，请等待完成")
+            return
+        self.is_rebuilding = True
+        self._append_rebuild("\n" + "=" * 50 + "\n开始重建向量库...\n")
+        import threading
+        threading.Thread(target=self._rebuild_worker, daemon=True).start()
+
+    def _rebuild_worker(self):
+        try:
+            proc = subprocess.Popen(
+                ["python", "run_pipeline.py"],
+                cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8", errors="replace")
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                self.after(0, self._append_rebuild, line)
+            code = proc.wait()
+            self.after(0, self._append_rebuild, f"\n退出码 {code}：" + ("重建成功" if code == 0 else "重建失败，见上方日志\n"))
+            self.is_rebuilding = False
+            self.set_status("重建成功" if code == 0 else "重建失败")
+        except Exception as e:
+            self.is_rebuilding = False
+            self.set_status(f"重建异常: {e}")
+
+    # ── 重启服务 ──────────────────────────────────────
+    def do_restart_service(self):
+        if not self.service_name:
+            messagebox.showinfo("提示", "未检测到 nssm 服务。\n请手动重启：python run_server.py", parent=self)
+            return
+        if not messagebox.askyesno("重启服务", f"将重启服务 {self.service_name}，确认？", parent=self):
+            return
+        try:
+            r = subprocess.run([str(NSSM), "restart", self.service_name],
+                               capture_output=True, text=True, encoding="utf-8", errors="ignore", timeout=60)
+            self.set_status(f"重启服务结果: {r.returncode} {r.stdout.strip() or r.stderr.strip()}")
+        except Exception as e:
+            self.set_status(f"重启服务异常: {e}")
 
 
 def main():
