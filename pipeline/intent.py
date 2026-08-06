@@ -23,8 +23,8 @@ def _count_hits(text: str, words: list) -> int:
     return sum(1 for w in words if w in text)
 
 
-def analyze_intent(text: str, prev_emotion: str = "neutral") -> dict:
-    """粗判一句话的情绪与需求。prev_emotion 供前文衰减融合（预留）。"""
+def analyze_intent(text: str) -> dict:
+    """粗判一句话的情绪与需求。"""
     neg = _count_hits(text, EMOTION_WORDS_NEG)
     pos = _count_hits(text, EMOTION_WORDS_POS)
     if neg > pos:
