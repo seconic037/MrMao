@@ -52,6 +52,21 @@ class TestIntent(unittest.TestCase):
         """I-5 支撑：负面+高情感 → kind=comfort。"""
         r = analyze_intent("我压力大，好累")
         self.assertEqual(r["kind"], "comfort")
+    # ── 二轮复评审新增（N1/N2/N5）──
+    def test_pure_negative_comfort(self):
+        """N1：纯负面句（无 affection 信号词）应落 comfort，而非 retreat。"""
+        for s in ("我很焦虑", "我很烦", "我很痛苦"):
+            r = analyze_intent(s)
+            self.assertEqual(r["kind"], "comfort", f"{s} 应判 comfort，got kind={r['kind']}")
+    def test_distant_negation_not_filtering_info(self):
+        """N2：'我不知如何是好' 中'如何'前隔'知'，不算否定，info 应命中。"""
+        r = analyze_intent("我不知如何是好")
+        self.assertGreater(r["needs"]["info"], 0)
+        self.assertEqual(r["kind"], "info")
+    def test_approval_without_question_mark(self):
+        """N5：'对不对' 自问词无问号也应判 approval。"""
+        r = analyze_intent("你说我这样做对不对")
+        self.assertEqual(r["kind"], "approval")
 
 if __name__ == "__main__":
     unittest.main()

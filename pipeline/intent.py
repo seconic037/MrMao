@@ -12,8 +12,10 @@ EMOTION_WORDS_POS = [
     "开心", "高兴", "太好了", "棒", "成功", "厉害", "满意", "幸福", "激动",
     "感谢", "感谢你", "喜欢", "进步", "突破", "顺利", "好运", "欣慰",
 ]
-# 情绪词前紧邻的否定词（往前看 1~2 个字符），命中时不算该词命中（如"不高兴"里的"高兴"）
-NEG_PREFIXES = ("不", "没", "别", "无", "勿", "莫")
+# 否定词集合：单字或双字，须紧贴被否定的词（如"不高兴"里的"不"）；
+# "不知如何"中"不"与"如何"隔"知"，不构成紧贴否定，故不误杀。
+NEG_PREFIXES = ("不", "没", "别", "无", "勿", "莫",
+                "不是", "没有", "不会", "不能", "别是")
 NEED_SIGNALS = {
     "info": ["怎么办", "如何", "为什么", "该不该", "能不能", "怎么", "什么意思", "有什么办法"],
     "affection": ["好累", "压力大", "好难", "做不到", "是不是我不行", "没用", "撑不住", "安慰", "好烦",
@@ -21,15 +23,17 @@ NEED_SIGNALS = {
     "action": ["帮我", "帮我个忙", "请你", "拜托", "替我"],
     # 试探/反问信号：命中即输出 kind="test"（直接表态，别绕弯子）
     "test": ["你觉得呢", "你说呢", "您觉得", "您怎么看", "你怎么看", "你琢磨呢", "你以为呢"],
-    # 求认可信号：命中且句子带"吗/？"时输出 kind="approval"
+    # 求认可信号：命中即输出 kind="approval"（"对不对"等自问词不必带问号）
     "approval": ["对不对", "对吗", "行吗", "这样想", "是不是我", "你看行不行", "我这样"],
 }
 
 
 def _has_neg_prefix(text: str, idx: int) -> bool:
-    """词前面紧邻否定词（往前看 1~2 个字符）则返回 True。"""
-    for dist in (1, 2):
-        if idx - dist >= 0 and text[idx - dist] in NEG_PREFIXES:
+    """词前紧贴否定词（向前取 1~3 个字符，否定词须以紧邻字符为结尾）则返回 True。"""
+    for dist in (1, 2, 3):
+        if idx - dist < 0:
+            break
+        if text[idx - dist: idx] in NEG_PREFIXES:
             return True
     return False
 
@@ -53,7 +57,7 @@ def _classify_kind(text: str, emotion: str, needs: dict, test_hits: int, approva
     """把本轮定性成一个策略标签（test/approval/comfort/retreat/info），供 think 策略映射使用。"""
     if test_hits:
         return "test"
-    if approval_hits and ("吗" in text or "？" in text or "?" in text):
+    if approval_hits:
         return "approval"
     if emotion == "negative":
         # 求安慰：负面且情感需求压过信息需求
@@ -85,9 +89,10 @@ def analyze_intent(text: str) -> dict:
         hits = _count_hits(text, NEED_SIGNALS[key])
         if hits:
             needs[key] = min(0.4 + 0.2 * hits, 1.0)
-    # 负面情绪天然提升"要情感"隶属度
+    # 负面情绪天然提升"要情感"隶属度：垫底 0.45 > comfort 阈值 0.4，
+    # 纯负面句（无 affection 信号词）也能落入求安慰而非拒绝退缩。
     if emotion == "negative":
-        needs["affection"] = max(needs["affection"], 0.4)
+        needs["affection"] = max(needs["affection"], 0.45)
     # 无任何信号 → 视为闲聊（无需求）
     if all(v == 0.0 for v in needs.values()):
         needs["affection"] = 0.1
