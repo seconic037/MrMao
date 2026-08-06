@@ -41,6 +41,7 @@ let loading=false;
 let currentScene='';
 let sceneMode=false;
 let idleTimer=null;
+let suggestTimer=null;
 let currentFatigue='green';
 let logData=null;
 let idleEl=null;
@@ -400,34 +401,38 @@ function resetIdleTimer(){
     if(idleEl){idleEl.remove();idleEl=null;}
     if(exitTimer)clearTimeout(exitTimer);
     if(exitCountdown)clearInterval(exitCountdown);
+    if(suggestTimer)clearTimeout(suggestTimer);
     removeExitBar();
     idleCount=0;
     sceneSuggested=false;
-    // 30s 冷场 → 8min 预警 → 10min 离开
+    // 冷场时序：30s 首动 → 4min 场景建议（独立计时，与挂起无关）→ 8min 预警 → 10min 离开
     idleTimer=setTimeout(showIdleAction,30000);
+    suggestTimer=setTimeout(showSceneSuggest,4*60000);
     exitTimer=setTimeout(showExitWarning,8*60000);
+}
+async function showSceneSuggest(){
+    // 纯计时场景建议：挂起后 4min 直接触发（不依赖 idleCount 循环）
+    if(sceneSuggested)return;
+    sceneSuggested=true;
+    const tired=currentFatigue==='yellow'||currentFatigue==='red';
+    if(tired)return; // 疲劳时延后到 exit 阶段，避免叠加打扰
+    try{
+        const sr=await fetch('/api/scene/suggest');const sd=await sr.json();
+        if(sd.target&&sd.target!==currentScene){
+            const suggestEl=document.createElement('div');
+            suggestEl.className='idle-action';
+            suggestEl.innerHTML=`${sd.message} <button onclick="setScene('${sd.target}')" style="margin-left:8px;padding:2px 10px;border-radius:10px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-size:12px;cursor:pointer">好</button><button onclick="this.parentElement.remove()" style="margin-left:4px;padding:2px 10px;border-radius:10px;border:1px solid var(--border);background:transparent;font-size:12px;cursor:pointer">再坐会儿</button>`;
+            document.getElementById('chat').appendChild(suggestEl);
+            suggestEl.scrollIntoView();
+        }
+    }catch(e){}
 }
 async function showIdleAction(){
     idleCount++;
+    // 只发一次确认动作，然后挂起（用户思考/离开时不再每30s骚扰）
     try{const r=await fetch('/api/idle-actions');const d=await r.json();if(d.actions?.length){idleEl=document.createElement('div');idleEl.className='idle-action';idleEl.textContent=d.actions[Math.floor(Math.random()*d.actions.length)];document.getElementById('chat').appendChild(idleEl);idleEl.scrollIntoView()}}catch(e){}
-    // 切换建议触发条件（问题 7）：空闲 8min（16 次×30s）或 疲劳黄/红 + 空闲 4min（8 次）
-    const tired=currentFatigue==='yellow'||currentFatigue==='red';
-    if((idleCount>=16||(tired&&idleCount>=8))&&!sceneSuggested){
-        sceneSuggested=true;
-        try{
-            const sr=await fetch('/api/scene/suggest');const sd=await sr.json();
-            if(sd.target&&sd.target!==currentScene){
-                const suggestEl=document.createElement('div');
-                suggestEl.className='idle-action';
-                suggestEl.innerHTML=`${sd.message} <button onclick="setScene('${sd.target}')" style="margin-left:8px;padding:2px 10px;border-radius:10px;border:1px solid var(--primary);background:var(--primary);color:#fff;font-size:12px;cursor:pointer">好</button><button onclick="this.parentElement.remove()" style="margin-left:4px;padding:2px 10px;border-radius:10px;border:1px solid var(--border);background:transparent;font-size:12px;cursor:pointer">再坐会儿</button>`;
-                document.getElementById('chat').appendChild(suggestEl);
-                suggestEl.scrollIntoView();
-            }
-        }catch(e){}
-    }
-    idleTimer=setTimeout(refreshIdleAction,30000);
+    // 挂起：不再重排定时器（原 refreshIdleAction 删除）；用户回应时 resetIdleTimer 全复位
 }
-function refreshIdleAction(){if(idleEl)idleEl.remove();showIdleAction();}
 
 async function showExitWarning(){
     // 8分钟预警
