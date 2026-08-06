@@ -49,6 +49,11 @@ class TopicThread:
         # 深拷贝（backlog S8）：防外部通过返回列表篡改内部节点
         return [dict(n) for n in self._nodes]
 
+    def restore(self, nodes: list) -> None:
+        """从持久化快照恢复节点（S5 长期记忆）。"""
+        self._nodes = [dict(n) for n in (nodes or [])]
+        self._round = max((n.get("round", 0) for n in self._nodes), default=0)
+
     def summary(self) -> str:
         if not self._nodes:
             return ""

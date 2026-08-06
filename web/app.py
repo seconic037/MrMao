@@ -85,8 +85,9 @@ TITLES_FILE = LOG_DIR / "titles.json"
 
 # ── 恢复上次会话 ──────────────────────────────────────────
 def _restore_session():
-    """从最近的日志文件恢复会话状态。"""
+    """从最近的日志文件恢复会话状态（S5：优先恢复三层记忆快照）。"""
     global round_count, total_tokens, session_memories, session_log, session_log_file, last_activity
+    global raw_buffer, topic_thread
     log_files = sorted(LOG_DIR.glob("session_*.jsonl"), key=lambda f: f.stat().st_mtime, reverse=True)
     if not log_files:
         return
@@ -102,18 +103,36 @@ def _restore_session():
             return
         round_count = sum(1 for e in entries if e.get("role") == "user")
         total_tokens = sum(e.get("tokens_in", 0) for e in entries)
-        # 构建 dict 格式记忆（与实时对话一致）：{question, summary}，取最近 5 轮
-        memories = []
-        for e in entries[-20:]:
-            if e.get("role") == "user":
-                memories.append({"question": e.get("content", "")[:60], "summary": ""})
-            elif e.get("role") == "chairman" and memories:
-                memories[-1]["summary"] = e.get("content", "")[:80]
-        session_memories = [m for m in memories if m.get("summary")][-5:]
+        # 已落盘的条目打 _written 标记，防止 _flush_log 重复追加
+        for e in entries:
+            e["_written"] = True
+        # S5：优先从最新 _meta 快照恢复三层记忆
+        snap = None
+        for e in reversed(entries):
+            if e.get("role") == "_meta" and e.get("type") == "memory_snapshot":
+                snap = e.get("data") or {}
+                break
+        if snap:
+            raw_buffer = [dict(x) for x in (snap.get("raw_buffer") or [])]
+            session_memories = [dict(x) for x in (snap.get("memories") or [])]
+            nodes = snap.get("topic_thread") or []
+            topic_thread = TopicThread()
+            topic_thread.restore(nodes)
+            print(f"Session restored (S5 snapshot): {round_count} rounds from {latest.name}, "
+                  f"topic_nodes={len(nodes)}")
+        else:
+            # 退回旧逻辑：无 _meta 快照（老版本日志），重建 memories
+            memories = []
+            for e in entries[-20:]:
+                if e.get("role") == "user":
+                    memories.append({"question": e.get("content", "")[:60], "summary": ""})
+                elif e.get("role") == "chairman" and memories:
+                    memories[-1]["summary"] = e.get("content", "")[:80]
+            session_memories = [m for m in memories if m.get("summary")][-5:]
+            print(f"Session restored (legacy): {round_count} rounds from {latest.name}")
         session_log = entries
         session_log_file = latest
         last_activity = time.time()
-        print(f"Session restored: {round_count} rounds, {total_tokens} tokens from {latest.name}")
     except Exception as e:
         print(f"Session restore skipped: {e}")
 
@@ -209,11 +228,32 @@ def _generate_summary(question: str, answer: str) -> dict:
     except:
         return {"question": question[:30], "summary": answer[:30]}
 
+def _write_meta_snapshot():
+    """每轮对话后写记忆快照 _meta 条目（S5 方案 A）。
+    复用 _flush_log 的 _written 标记：条目入 session_log 即被追加写盘。
+    前端渲染需过滤 role == '_meta'（/api/sessions 已处理）。"""
+    global session_log
+    _ensure_log_file()
+    entry = {
+        "role": "_meta",
+        "type": "memory_snapshot",
+        "ts": datetime.now().isoformat(),
+        "data": {
+            "raw_buffer": raw_buffer,
+            "memories": session_memories,
+            "topic_thread": topic_thread.nodes(),
+            "session_id": str(session_log_file.name) if session_log_file else "",
+        },
+    }
+    session_log.append(entry)
+    _flush_log()
+
 def _compact_context() -> str:
     """将历史对话压缩为一段摘要。"""
     if len(session_log) <= 10: return ""
     try:
-        history = "\n".join([f"{e['role']}: {e['content'][:80]}" for e in session_log[:-5]])
+        dialog = [e for e in session_log[:-5] if e.get("role") in ("user", "chairman")]
+        history = "\n".join([f"{e['role']}: {e['content'][:80]}" for e in dialog])
         r = llm.chat.completions.create(
             model=LLM_MODEL,
             messages=[{"role": "user", "content": f"把这段对话压缩成一段简短摘要：\n{history[:2000]}"}],
@@ -401,7 +441,8 @@ async def get_logs():
         sessions.append({"name": f.name, "size": f.stat().st_size, "time": datetime.fromtimestamp(f.stat().st_mtime).isoformat(),
                         "title": t.get("title", ""), "rounds": t.get("rounds", 0), "preview": preview[:60]})
     return {"sessions": sessions, "current": str(session_log_file.name) if session_log_file else "",
-            "entries": session_log[-100:], "active_rounds": round_count, "active_title": session_title}
+            "entries": [e for e in session_log[-100:] if e.get("role") != "_meta"],
+            "active_rounds": round_count, "active_title": session_title}
 
 @app.delete("/api/logs/{filename}")
 async def delete_log(filename: str):
@@ -612,16 +653,33 @@ async def restore_session(filename: str = ""):
     except Exception:
         raise HTTPException(400, "日志解析失败")
     global round_count, total_tokens, session_memories, session_log, session_log_file, last_activity
+    global raw_buffer, topic_thread
     round_count = sum(1 for e in entries if e.get("role") == "user")
     total_tokens = sum(e.get("tokens_in", 0) for e in entries)
-    # 构建 dict 格式记忆（与实时对话一致）：{question, summary}，取最近 5 轮
-    memories = []
-    for e in entries[-20:]:
-        if e.get("role") == "user":
-            memories.append({"question": e.get("content", "")[:60], "summary": ""})
-        elif e.get("role") == "chairman" and memories:
-            memories[-1]["summary"] = e.get("content", "")[:80]
-    session_memories = [m for m in memories if m.get("summary")][-5:]
+    # 已落盘的条目打 _written 标记，防止 _flush_log 重复追加
+    for e in entries:
+        e["_written"] = True
+    # S5：优先从最新 _meta 快照恢复三层记忆
+    snap = None
+    for e in reversed(entries):
+        if e.get("role") == "_meta" and e.get("type") == "memory_snapshot":
+            snap = e.get("data") or {}
+            break
+    if snap:
+        raw_buffer = [dict(x) for x in (snap.get("raw_buffer") or [])]
+        session_memories = [dict(x) for x in (snap.get("memories") or [])]
+        nodes = snap.get("topic_thread") or []
+        topic_thread = TopicThread()
+        topic_thread.restore(nodes)
+    else:
+        # 退回旧逻辑：无 _meta 快照（老版本日志），重建 memories
+        memories = []
+        for e in entries[-20:]:
+            if e.get("role") == "user":
+                memories.append({"question": e.get("content", "")[:60], "summary": ""})
+            elif e.get("role") == "chairman" and memories:
+                memories[-1]["summary"] = e.get("content", "")[:80]
+        session_memories = [m for m in memories if m.get("summary")][-5:]
     session_log = entries
     session_log_file = path
     last_activity = time.time()
@@ -1008,6 +1066,8 @@ async def chat(req: ChatReq):
     if len(raw_buffer) > 2:
         raw_buffer = raw_buffer[-2:]
     # 话题主线已在 think 前更新（backlog S8），此处不再重复调用
+    # 记忆快照（S5）：每轮后写 _meta 条目，供重启恢复
+    _write_meta_snapshot()
 
     return ChatResp(
         answer=answer,
