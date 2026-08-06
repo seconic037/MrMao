@@ -22,7 +22,7 @@ python run_server.py --port=8080 --reload  # 自定义端口 + 热重载
 ```
 
 - 新增语料：TXT 放入 `data/txt/知识扩展/` 后重跑 `run_pipeline.py`
-- 向量库重建失败：删除 `data/chroma_v2/` 后重跑管道
+- 向量库重建失败：删除 `data/chroma_v3/` 后重跑管道（实际库路径以 `.env` 的 `CHROMA_PERSIST_DIR` 为准）
 - 测试：unittest（`tests/test_intent.py` `tests/test_topic_thread.py` `tests/test_kb_ops.py` 等，共 62 用例；无 pytest）
 
 ## Architecture
@@ -33,7 +33,7 @@ python run_server.py --port=8080 --reload  # 自定义端口 + 热重载
 | `rag/` | 混合检索：向量 top-10 + BM25 top-5 → RRF 融合 → top_k | `retriever.py`（类 `Retriever`，`SearchResult` dataclass） |
 | `reasoning/` | 两阶段推理：`think`（意图驱动内心思考）→ `speak`（自然对话规则表达） | `framework.py` `prompts/*.jinja2` |
 | `web/` | FastAPI 服务 + 前端 | `app.py` `static/` |
-| `data/` | 语料 `txt/`、解析结果 `extracted/`、向量库 `chroma_db|chroma_v2/`、日志 `logs/` | |
+| `data/` | 语料 `txt/`、解析结果 `extracted/`、向量库 `chroma_v3/`（实际以 `.env` 为准）、日志 `logs/` | |
 
 数据流：用户输入 → 意图判断（`intent.py` 双轴标签）→ `Retriever.search`（RAG）→ think（注入意图+三层记忆+话题线+知识框架）→ speak（自然规则表达）→ 逐字输出。
 
