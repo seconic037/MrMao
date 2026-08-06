@@ -23,19 +23,19 @@ python run_server.py --port=8080 --reload  # 自定义端口 + 热重载
 
 - 新增语料：TXT 放入 `data/txt/知识扩展/` 后重跑 `run_pipeline.py`
 - 向量库重建失败：删除 `data/chroma_v2/` 后重跑管道
-- 无测试套件（无 pytest 配置）
+- 测试：unittest（`tests/test_intent.py` `tests/test_topic_thread.py` `tests/test_kb_ops.py` 等，共 62 用例；无 pytest）
 
 ## Architecture
 
 | 模块 | 职责 | 关键文件 |
 |------|------|---------|
-| `pipeline/` | 离线数据处理：TXT解析→分块→向量化入库 | `txt_parser.py` `chunker.py` `embed_and_store.py` |
+| `pipeline/` | 离线数据处理：TXT解析→分块→向量化入库；意图判断；话题主线 | `txt_parser.py` `chunker.py` `embed_and_store.py` `intent.py` `topic_thread.py` |
 | `rag/` | 混合检索：向量 top-10 + BM25 top-5 → RRF 融合 → top_k | `retriever.py`（类 `Retriever`，`SearchResult` dataclass） |
-| `reasoning/` | 两阶段推理：`think`（矛盾分析）→ `speak`（毛式表达） | `framework.py` `prompts/*.jinja2` |
+| `reasoning/` | 两阶段推理：`think`（意图驱动内心思考）→ `speak`（自然对话规则表达） | `framework.py` `prompts/*.jinja2` |
 | `web/` | FastAPI 服务 + 前端 | `app.py` `static/` |
 | `data/` | 语料 `txt/`、解析结果 `extracted/`、向量库 `chroma_db|chroma_v2/`、日志 `logs/` | |
 
-数据流：用户输入 → `Retriever.search`（RAG）→ think 提示（注入记忆）→ speak 提示 → 逐字输出。
+数据流：用户输入 → 意图判断（`intent.py` 双轴标签）→ `Retriever.search`（RAG）→ think（注入意图+三层记忆+话题线+知识框架）→ speak（自然规则表达）→ 逐字输出。
 
 ## Conventions
 
