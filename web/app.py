@@ -705,12 +705,26 @@ async def summarize_log(filename: str = ""):
 async def hotspot_preview(title: str = ""):
     """生成热点事件的概述（口语化、简短、纯事件描述）。"""
     if not llm or not title: return {"brief": title}
-    resp = llm.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[{"role": "user", "content": f"用2-3句话口语化地讲清楚这个热点事件：{title}\n\n要求：像朋友聊天那样描述事件本身（发生了什么、大家什么反应），不要用「你刷到没」「你知道吗」「听说」这类引语开头，直接说事；别用书面语，别列条目，不超过100字。"}],
-        max_tokens=180, temperature=0.8
-    )
-    return {"title": title, "brief": resp.choices[0].message.content.strip()}
+    prompt = (f"用2-3句话口语化地讲清楚这个热点事件：{title}\n\n"
+              f"要求：像朋友聊天那样描述事件本身（发生了什么、大家什么反应），"
+              f"不要用「你刷到没」「你知道吗」「听说」这类引语开头，直接说事；"
+              f"别用书面语，别列条目，不超过100字。")
+    brief = ""
+    for _attempt in range(2):  # LLM 偶发空响应，重试一次
+        try:
+            resp = llm.chat.completions.create(
+                model=LLM_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=180, temperature=0.8
+            )
+            brief = (resp.choices[0].message.content or "").strip()
+        except Exception:
+            brief = ""
+        if brief:
+            break
+    if not brief:
+        brief = "（这个热点暂时没有找到相关描述）"
+    return {"title": title, "brief": brief}
 
 @app.post("/api/hotspot/fetch")
 async def hotspot_fetch(payload: dict):
