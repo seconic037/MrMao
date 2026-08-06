@@ -1,17 +1,19 @@
-# Handoff: 自然语言规则模块（手册 v3 已实现 + 第 7~11 层深化待推进）
+# Handoff: 自然语言规则模块（✅ 已完成：手册 v5 + 主席配置 + S1~S8 全实现）
 
 > 从 MrMao 主席模拟器分叉 | 2026-08-06 22:03
-> 状态：✅ 已完成（手册 v4 已产出并提交 `63397a1`；新层实现另起一轮，见 result.md）
+> 状态：✅ 已完成（分支由后续会话完整推进——手册 v5 已发布、S1~S8 全部实现；最终记录见 `2026-08-06-natural-conversation-rules-result.md`）
 
 ## 任务目标
 
-继续推进"自然语言规则"模块：当前手册 v3（第 0~6 层）已实现落地，待办是**深化手册第 7~11 层**（冲突/幽默/拒绝/沉默/情绪爆发），并可选择把新层实现进 prompt。
+✅ **已完成**（2026-08-06 后续会话完整推进）：手册 v3 → **v5**（通用自然对话规则手册，0~12 层去绑定抽象）+ 主席配置（第一个实例），并实现 S1~S8 全部代码（意图/场景信号/性格层/术语随场合/长期记忆/冷场挂起/特殊场景应对）。
 
 ## 验收标准
 
-- 手册 v4 包含第 0~11 层（新增 7~11 层草案已产出，待审阅并并入手册）
-- 若实现新层：prompt 与意图模块相应更新，10 轮对话实测自然度不回退
-- 具体实现范围与验收细节：**待子会话与用户确认**（用户上次选择"按序全补 + 理论标注"）
+✅ **已达成**：
+- 手册 v5 含 0~12 层 + 三大原则总纲 + 机制配置接口（取代 v3/v4 规则部分）
+- S1~S8 全部实现，62 unittest 全过
+- 10 轮跨意图实测（求答案/求安慰/冲突/闲聊）自然度通过、0 术语外露
+- 唯一遗留：用户自做的更长时间真实对话体验（见 result.md）
 
 ## 项目环境
 
@@ -25,13 +27,16 @@
 
 | 文件 | 类型 | 说明 |
 |------|------|------|
-| `docs/superpowers/specs/2026-08-06-natural-conversation-redesign.md` | 修改 | 手册 v3 设计文档；待并入第 7~11 层变 v4 |
-| `pipeline/intent.py` | 修改 | 意图判断器（双轴：情绪+需求，含 kind 细分）——新层可能需扩充信号 |
+| `docs/superpowers/specs/2026-08-06-natural-conversation-rules-v5.md` | 修改 | **通用自然对话规则手册 v5**（最终版，取代 v3/v4 规则部分） |
+| `docs/superpowers/specs/2026-08-06-mao-config.md` | 修改 | 主席配置（第一个实例：10 特质×情境 + C1~C8 裁定） |
+| `docs/superpowers/specs/2026-08-06-scene-signal-detector-design.md` | 修改 | 场景信号检测器（S3+S4+S6）+ 性格层实现 |
+| `docs/superpowers/specs/2026-08-06-long-term-memory-design.md` | 修改 | 长期记忆持久化（S5，_meta 快照） |
+| `pipeline/intent.py` | 修改 | 意图判断器（情绪+需求+situation/arousal/scene 信号） |
 | `pipeline/topic_thread.py` | 修改 | 话题主线（Jaccard 切换检测） |
-| `reasoning/prompts/think.jinja2` | 修改 | 意图驱动内心思考 + kind→策略映射 |
-| `reasoning/prompts/speak.jinja2` | 修改 | 自然对话规则（第 0~5 层已落地）——新层如"拒绝/幽默"可能加约束 |
-| `web/app.py` | 修改 | 三层记忆 + 意图注入主链路 |
-| `tests/test_intent.py` `tests/test_topic_thread.py` | 修改 | 意图/话题单测（当前 15+3 用例） |
+| `reasoning/prompts/think.jinja2` | 修改 | 意图驱动内心思考 + 场景/情境/唤醒度注入 + 特质选择 |
+| `reasoning/prompts/speak.jinja2` | 修改 | 自然对话规则（0~12 层）+ 特殊场景应对 + 术语随场合 |
+| `web/app.py` | 修改 | 三层记忆 + 意图注入 + 长期记忆快照 |
+| `tests/test_intent.py` `tests/test_topic_thread.py` | 修改 | 意图/话题单测（62 用例全过） |
 
 ## 当前变更
 
@@ -60,7 +65,7 @@
 ## 建议加载的 Skill/文档
 
 - Skill: `maozedong-wenxian`（文献知识）· `maoxuan-workbench`（毛选方法论）
-- 文档: `docs/superpowers/specs/2026-08-06-natural-conversation-redesign.md`（手册 v3 全量）· `.superpowers/sdd/progress.md`（进度+backlog）
+- 文档: `docs/superpowers/specs/2026-08-06-natural-conversation-rules-v5.md`（手册 v5 最终版）· `docs/superpowers/specs/2026-08-06-mao-config.md`（主席配置）· `docs/handoffs/2026-08-06-natural-conversation-rules-result.md`（分支最终记录）
 - 记忆: `除非用户主动说-否则不上传-github`
 
 ## 完成时收尾
