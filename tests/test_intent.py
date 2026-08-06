@@ -67,6 +67,28 @@ class TestIntent(unittest.TestCase):
         """N5：'对不对' 自问词无问号也应判 approval。"""
         r = analyze_intent("你说我这样做对不对")
         self.assertEqual(r["kind"], "approval")
+    # ── backlog S8 新增 ──
+    def test_mafan_not_negative(self):
+        """S8：substring 误报——'麻烦'里的'烦'不是负面情绪。"""
+        r = analyze_intent("麻烦你帮我拿一下")
+        self.assertNotEqual(r["emotion"], "negative")
+    def test_fan_still_negative(self):
+        """S8：反例——真正的'烦'仍应判负面（防过杀）。"""
+        r = analyze_intent("我真烦")
+        self.assertEqual(r["emotion"], "negative")
+    def test_emotion_tie_goes_neutral(self):
+        """S8：平局分支——正负情绪词同数时应中性（neg==pos → neutral）。"""
+        r = analyze_intent("又开心又烦")
+        self.assertEqual(r["emotion"], "neutral")
+    def test_need_cap_at_one(self):
+        """S8：封顶分支——多信号词叠加后隶属度不超 1.0。"""
+        r = analyze_intent("怎么办怎么办怎么办怎么办怎么办怎么办")
+        self.assertLessEqual(r["needs"]["info"], 1.0)
+    def test_empty_input_returns_defaults(self):
+        """S8：空输入防护——不抛异常，返回中性+无需求。"""
+        for s in ("", "   "):
+            r = analyze_intent(s)
+            self.assertEqual(r["emotion"], "neutral")
 
 if __name__ == "__main__":
     unittest.main()

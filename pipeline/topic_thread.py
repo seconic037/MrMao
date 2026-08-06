@@ -17,8 +17,10 @@ def _keywords(text: str) -> set:
 
 def _jaccard(a: set, b: set) -> float:
     if not a and not b:
-        return 1.0
-    return len(a & b) / len(a | b) if (a | b) else 0.0
+        return 1.0  # 两集皆空视为同一话题
+    if not a or not b:
+        return 0.0  # 单侧为空（含 a|b 为空但 a==b 已在上分支排除）
+    return len(a & b) / len(a | b)
 
 
 class TopicThread:
@@ -27,6 +29,9 @@ class TopicThread:
         self._round = 0
 
     def update(self, question: str) -> None:
+        # 空输入防护（backlog S8）：空白消息不产生节点、不推进轮次
+        if not question or not question.strip():
+            return
         self._round += 1
         kws = _keywords(question)
         if not self._nodes:
@@ -41,12 +46,23 @@ class TopicThread:
             self._nodes.append({"topic": question[:20], "brief": question[:30], "round": self._round})
 
     def nodes(self) -> list:
-        return list(self._nodes)
+        # 深拷贝（backlog S8）：防外部通过返回列表篡改内部节点
+        return [dict(n) for n in self._nodes]
 
     def summary(self) -> str:
         if not self._nodes:
             return ""
         if len(self._nodes) == 1:
             return f"你们在聊「{self._nodes[0]['topic']}」"
-        topics = "、".join(n["topic"] for n in self._nodes)
-        return f"从「{self._nodes[0]['topic']}」聊到「{self._nodes[-1]['topic']}」，中间还提到：{topics}"
+        first, last = self._nodes[0], self._nodes[-1]
+        middle = self._nodes[1:-1]
+        # 中间节点去重 + 避免首尾重复（backlog S8：summary 文案"中间还提到"重复）
+        seen, mids = set(), []
+        for n in middle:
+            tp = n["topic"]
+            if tp and tp not in seen and tp not in (first["topic"], last["topic"]):
+                seen.add(tp)
+                mids.append(tp)
+        if not mids:
+            return f"从「{first['topic']}」聊到「{last['topic']}」"
+        return f"从「{first['topic']}」聊到「{last['topic']}」，中间还提到：{'、'.join(mids)}"

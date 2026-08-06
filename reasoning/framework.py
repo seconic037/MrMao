@@ -42,6 +42,12 @@ class MaoReasoningEngine:
 
     def build_think_prompt(self, question, rags, memories, **extra):
         """extra: topic_line, raw_recent, intent 等可选上下文。"""
+        # backlog S8 None 防御：rags/memories/raw_recent 可能为 None
+        rags = rags or []
+        memories = [m for m in (memories or []) if isinstance(m, dict)]
+        extra.setdefault("raw_recent", [])
+        extra.setdefault("topic_line", "")
+        extra.setdefault("intent", {})
         if "knowledge_base" not in extra:
             extra["knowledge_base"] = self._knowledge_base
         return self._jinja_env.get_template("think.jinja2").render(

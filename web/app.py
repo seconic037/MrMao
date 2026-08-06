@@ -143,11 +143,12 @@ GREETINGS = [
 ]
 
 # 场景切换后 NPC 开场白兜底（LLM 偶发返回空时使用，问题 6）
+# 2026-08-06 S7：去反问收尾、打破"场景白描+话头+反问"同构（对齐手册 3.2/3.4）
 FALLBACK_TOPICS = {
-    "shuwu": "这满屋子的书，够咱们聊个三天三夜。方才那个话头，你心里有主意了没有？",
-    "keting": "屋里清静，正好说话。方才说到的事，你回去想过了没有？",
-    "xiaolu": "这小路走着走着，人就清爽了。刚才的话头，咱们边走边聊。",
-    "shuxia": "树荫底下坐坐，心也就静了。方才那事儿，你琢磨出什么道道没有？",
+    "shuwu": "这满屋子的书，方才那个话头，够咱们翻一阵子的。",
+    "keting": "屋里清静，正好说话。方才说到的事，你心里要是没想透，咱们接着捋。",
+    "xiaolu": "这小路走着走着，人就清爽了。方才的话头，边走边说。",
+    "shuxia": "树荫底下坐坐，心静了。方才那事儿，不急，坐定了慢慢说。",
 }
 
 IDLE_ACTIONS = [
@@ -924,6 +925,10 @@ async def chat(req: ChatReq):
     # 意图判断（本轮局部变量 intent：think 与记忆维护共用，避免全局串号）
     intent = analyze_intent(req.message)
 
+    # 话题主线提前更新（backlog S8：topic_line 首轮延迟修复——原 update 在答后才调用，
+    # 首轮 think 时 summary 为空；update 只依赖 question，可安全前置）
+    topic_thread.update(req.message)
+
     # 阶段 1：思维（注入对话记忆 + 话题线 + 原文缓冲 + 意图）
     think_prompt = engine.build_think_prompt(
         req.message, rags, session_memories[-5:],
@@ -1002,8 +1007,7 @@ async def chat(req: ChatReq):
     raw_buffer.append({"question": req.message, "answer": answer})
     if len(raw_buffer) > 2:
         raw_buffer = raw_buffer[-2:]
-    # 话题主线
-    topic_thread.update(req.message)
+    # 话题主线已在 think 前更新（backlog S8），此处不再重复调用
 
     return ChatResp(
         answer=answer,
