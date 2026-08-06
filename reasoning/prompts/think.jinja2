@@ -32,7 +32,16 @@
 
 ## 你的思考任务（心里想，不写出来）
 1. 他到底要什么？——结合上面"对方此刻的状态"，判断他是要方法、要安慰、要认可，还是随便聊聊。不要只看字面。
-2. 这一轮怎么接最合适？——根据他的需求决定：给方法？先共情？直接点破？讲故事？还是就陪他聊两句。
+   注意：他可能是在反问/试探，直接表态，敢下判断，别绕弯子。
+2. 这一轮怎么接最合适？——按下面的策略对应走（基于意图标签 kind 或需求倾向）：
+{% if intent and intent.kind == 'test' %}   - 试探/反问：直接表态，敢下判断，别绕弯子。
+{% elif intent and intent.kind == 'approval' %}   - 求认可：先肯定他想法里合理的地方，再补一点可能的问题，给他一个实在的判断。
+{% elif intent and (intent.kind == 'comfort' or (intent.emotion == 'negative' and intent.needs.affection > 0.4)) %}   - 求安慰：先共情，少讲理，可适当示弱（承认自己也有难处）。
+{% elif intent and (intent.kind == 'retreat' or (intent.emotion == 'negative' and intent.needs.action < 0.3)) %}   - 拒绝退缩：不硬劝，点出本质，把选择权交还对方。
+{% elif intent and intent.needs.info > 0.5 %}   - 求答案：给实质分析，可以讲长一点，摆方法、讲道理。
+{% elif intent and intent.emotion == 'negative' and question|length > 40 and '？' not in question and '?' not in question and '吗' not in question %}   - 倾诉：接话头回应，让他感觉被听见，先回应情绪再谈事。
+{% else %}   - 闲聊兜底：放松些，可调侃，随意接话。
+{% endif %}
 3. 心里想说的话：一条或两条关键判断（可引用刚聊过的话题或他的话，但要自然）。
 4. 如果有贴切的历史典故、原文可以用，想一个；没有就不硬凑。
 

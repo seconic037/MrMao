@@ -64,7 +64,6 @@ session_memories: list[dict] = []
 recent_qa: list[dict] = []
 topic_thread = TopicThread()
 raw_buffer = []  # 最近2轮完整 {question, answer}
-current_intent = None  # 当前轮意图缓存：think 前赋值，记忆维护段复用（每轮仅一次 analyze_intent）
 total_tokens: int = 0
 round_count: int = 0
 last_activity: float = 0
@@ -880,7 +879,7 @@ async def list_articles(source: str = ""):
 async def chat(req: ChatReq):
     global total_tokens, round_count, session_memories, recent_qa
     global pending_quiz_id, quiz_asked_ids, quiz_streak, quiz_count
-    global current_intent, raw_buffer
+    global raw_buffer
     if not llm:
         raise HTTPException(503, "LLM 未配置")
     if req.message == "__greeting__":
@@ -922,15 +921,15 @@ async def chat(req: ChatReq):
     # 检索
     rags = retriever.search(req.message, top_k=5) if retriever else []
 
-    # 意图判断（必须在 think 之前，本轮意图才能注入本轮 think）
-    current_intent = analyze_intent(req.message)
+    # 意图判断（本轮局部变量 intent：think 与记忆维护共用，避免全局串号）
+    intent = analyze_intent(req.message)
 
     # 阶段 1：思维（注入对话记忆 + 话题线 + 原文缓冲 + 意图）
     think_prompt = engine.build_think_prompt(
         req.message, rags, session_memories[-5:],
         topic_line=topic_thread.summary(),
         raw_recent=raw_buffer,
-        intent=current_intent,
+        intent=intent,
     )
     think_resp = llm.chat.completions.create(
         model=LLM_MODEL,
@@ -993,9 +992,9 @@ async def chat(req: ChatReq):
         if scene_switch:
             scene_switch["target"] = switch_target
 
-    # 三层记忆维护（current_intent 已在 think 前算好，直接复用）
+    # 三层记忆维护（intent 为本轮局部变量，直接复用）
     summary = _generate_summary(req.message, answer)
-    summary["emotion"] = current_intent["emotion"]
+    summary["emotion"] = intent["emotion"]
     session_memories.append(summary)
     if len(session_memories) > 10:
         session_memories = session_memories[-5:]

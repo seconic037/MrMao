@@ -12,15 +12,59 @@ EMOTION_WORDS_POS = [
     "开心", "高兴", "太好了", "棒", "成功", "厉害", "满意", "幸福", "激动",
     "感谢", "感谢你", "喜欢", "进步", "突破", "顺利", "好运", "欣慰",
 ]
+# 情绪词前紧邻的否定词（往前看 1~2 个字符），命中时不算该词命中（如"不高兴"里的"高兴"）
+NEG_PREFIXES = ("不", "没", "别", "无", "勿", "莫")
 NEED_SIGNALS = {
     "info": ["怎么办", "如何", "为什么", "该不该", "能不能", "怎么", "什么意思", "有什么办法"],
-    "affection": ["好累", "压力大", "好难", "做不到", "是不是我不行", "没用", "撑不住", "安慰", "好烦"],
+    "affection": ["好累", "压力大", "好难", "做不到", "是不是我不行", "没用", "撑不住", "安慰", "好烦",
+                  "不知道怎么办", "不知道该怎么做", "不知道怎么做"],
     "action": ["帮我", "帮我个忙", "请你", "拜托", "替我"],
+    # 试探/反问信号：命中即输出 kind="test"（直接表态，别绕弯子）
+    "test": ["你觉得呢", "你说呢", "您觉得", "您怎么看", "你怎么看", "你琢磨呢", "你以为呢"],
+    # 求认可信号：命中且句子带"吗/？"时输出 kind="approval"
+    "approval": ["对不对", "对吗", "行吗", "这样想", "是不是我", "你看行不行", "我这样"],
 }
 
 
+def _has_neg_prefix(text: str, idx: int) -> bool:
+    """词前面紧邻否定词（往前看 1~2 个字符）则返回 True。"""
+    for dist in (1, 2):
+        if idx - dist >= 0 and text[idx - dist] in NEG_PREFIXES:
+            return True
+    return False
+
+
 def _count_hits(text: str, words: list) -> int:
-    return sum(1 for w in words if w in text)
+    """统计命中数；某词前紧邻否定词时该次出现不算命中。"""
+    hits = 0
+    for w in words:
+        start = 0
+        while True:
+            idx = text.find(w, start)
+            if idx < 0:
+                break
+            if not _has_neg_prefix(text, idx):
+                hits += 1
+            start = idx + 1
+    return hits
+
+
+def _classify_kind(text: str, emotion: str, needs: dict, test_hits: int, approval_hits: int):
+    """把本轮定性成一个策略标签（test/approval/comfort/retreat/info），供 think 策略映射使用。"""
+    if test_hits:
+        return "test"
+    if approval_hits and ("吗" in text or "？" in text or "?" in text):
+        return "approval"
+    if emotion == "negative":
+        # 求安慰：负面且情感需求压过信息需求
+        if needs["affection"] >= needs["info"] and needs["affection"] > 0.4:
+            return "comfort"
+        # 拒绝退缩：负面且没有强行动请求
+        if needs["action"] < 0.3:
+            return "retreat"
+    if needs["info"] > 0.5:
+        return "info"
+    return None
 
 
 def analyze_intent(text: str) -> dict:
@@ -35,8 +79,10 @@ def analyze_intent(text: str) -> dict:
         emotion = "neutral"
 
     needs = {"info": 0.0, "affection": 0.0, "action": 0.0}
-    for key, signals in NEED_SIGNALS.items():
-        hits = _count_hits(text, signals)
+    test_hits = _count_hits(text, NEED_SIGNALS["test"])
+    approval_hits = _count_hits(text, NEED_SIGNALS["approval"])
+    for key in ("info", "affection", "action"):
+        hits = _count_hits(text, NEED_SIGNALS[key])
         if hits:
             needs[key] = min(0.4 + 0.2 * hits, 1.0)
     # 负面情绪天然提升"要情感"隶属度
@@ -45,4 +91,5 @@ def analyze_intent(text: str) -> dict:
     # 无任何信号 → 视为闲聊（无需求）
     if all(v == 0.0 for v in needs.values()):
         needs["affection"] = 0.1
-    return {"emotion": emotion, "needs": needs}
+    kind = _classify_kind(text, emotion, needs, test_hits, approval_hits)
+    return {"emotion": emotion, "needs": needs, "kind": kind}
