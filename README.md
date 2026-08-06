@@ -90,6 +90,21 @@ python run_server.py           # 启动 http://localhost:8000
 
 > 💡 **开机自启：** 右键 `install_service.bat` →「以管理员身份运行」，将注册为 Windows 服务，开机自动后台运行。
 
+### ☁️ 云端部署（AWS EC2）
+
+```bash
+bash deploy.sh <EC2公网IP> [SSH_KEY路径]
+# 示例: bash deploy.sh 13.212.xx.xx
+# 默认 key: C:/Users/68090/.ssh/chairmanmao-key.pem
+```
+
+流程：本地打包（代码 + 向量库 `data/chroma_v3/` + 语料，**排除 .env**）→ scp 上传 → 解压到 `/home/ec2-user/chairmanmao/`（Amazon Linux 2023，用户 `ec2-user`）→ 首次部署时 .env 经 SSH 加密通道直写 → 自动安装 python3.11 + venv 依赖 → 写入 systemd 服务 `chairmanmao` → `/api/status` 验证（rag + llm 双检查）。
+
+前置条件：
+- 独立 EC2 实例（**t3.small 及以上，内存 ≥2GB**，磁盘 ≥20GB），安全组开放 **22**（SSH）与 **8000**（网页，`0.0.0.0/0` 供手机外网）
+- key pair 保存为 `C:/Users/68090/.ssh/chairmanmao-key.pem`（需与实例 key pair 指纹一致）
+- 云端 `.env` 需含 DeepSeek API key（首次部署自动从本地同步，key 不进部署包）
+
 ---
 
 ## 📁 项目结构
