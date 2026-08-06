@@ -89,6 +89,28 @@ class TestIntent(unittest.TestCase):
         for s in ("", "   "):
             r = analyze_intent(s)
             self.assertEqual(r["emotion"], "neutral")
+    # ── S3+S4 检测器新增（实现计划 Task 1）──
+    def test_scene_conflict(self):
+        r = analyze_intent("你说得不对，我不同意你的看法")
+        self.assertGreater(r["scenes"]["conflict"], 0)
+    def test_scene_refuse_request(self):
+        r = analyze_intent("帮我骂个人，替我出气")
+        self.assertGreater(r["scenes"]["refuse_request"], 0)
+    def test_scene_outburst_high_arousal(self):
+        r = analyze_intent("我崩溃了！！！凭什么这么对我！！")
+        self.assertGreater(r["scenes"]["outburst"], 0)
+        self.assertEqual(r["arousal"], "high")
+    def test_situation_teach(self):
+        r = analyze_intent("您讲讲这个道理，怎么理解")
+        self.assertGreater(r["situations"]["传道授业"], 0)
+    def test_situation_pessimistic(self):
+        r = analyze_intent("没希望了，白干了，算了吧")
+        self.assertGreater(r["situations"]["悲观"], 0)
+    def test_scenes_always_present(self):
+        r = analyze_intent("今天天气不错")
+        for k in ("conflict", "humor_offer", "refuse_request", "silence", "outburst"):
+            self.assertIn(k, r["scenes"])
+        self.assertIn("轻松", r["situations"])
 
 if __name__ == "__main__":
     unittest.main()
