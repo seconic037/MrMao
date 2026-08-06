@@ -22,7 +22,7 @@ from pipeline.scenes import (
     FATIGUE_ACTIONS as SCENE_FATIGUE_ACTIONS,
 )
 from pipeline.game_engine import (
-    pick_question, check_answer, should_quiz, STREAK_PRAISE,
+    pick_question, check_answer, should_quiz, get_question, STREAK_PRAISE,
 )
 
 # ── 环境变量 ──────────────────────────────────────────────
@@ -98,8 +98,14 @@ def _restore_session():
             return
         round_count = sum(1 for e in entries if e.get("role") == "user")
         total_tokens = sum(e.get("tokens_in", 0) for e in entries)
-        assistant_msgs = [e for e in entries if e.get("role") == "chairman"]
-        session_memories = [m.get("content", "")[:30] for m in assistant_msgs[-5:]]
+        # 构建 dict 格式记忆（与实时对话一致）：{question, summary}，取最近 5 轮
+        memories = []
+        for e in entries[-20:]:
+            if e.get("role") == "user":
+                memories.append({"question": e.get("content", "")[:60], "summary": ""})
+            elif e.get("role") == "chairman" and memories:
+                memories[-1]["summary"] = e.get("content", "")[:80]
+        session_memories = [m for m in memories if m.get("summary")][-5:]
         session_log = entries
         session_log_file = latest
         last_activity = time.time()
@@ -363,7 +369,7 @@ async def scene_topic():
     # LLM 偶发返回空/单字 → 本地兜底，保证 NPC 话题完整不缺席
     if not topic or len(topic) < 20:
         topic = FALLBACK_TOPICS.get(session_scene, FALLBACK_TOPICS[DEFAULT_SCENE])
-    return {"topic": topic, "quiz": _maybe_quiz()}
+    return {"topic": topic, "quiz": None}  # 考考你不再自动触发
 
 @app.get("/api/logs")
 async def get_logs():
@@ -406,7 +412,7 @@ async def compact():
     global round_count, session_memories
     summary = _compact_context()
     round_count = 0
-    session_memories = [summary] if summary else []
+    session_memories = [{"question": "(续聊摘要)", "summary": summary}] if summary else []
     return {"message": "主席精神了", "summary": summary, "fatigue": "green"}
 
 # ── 著作阅读 ──────────────────────────────────────────
@@ -552,6 +558,16 @@ async def get_log_entries(filename: str = ""):
                 entries.append(json.loads(line))
     return {"entries": entries}
 
+@app.post("/api/logs/append")
+async def append_log_entry(payload: dict):
+    """前端注入的 NPC 消息（场景话题/恢复总结等）也写入日志，保证界面与日志一致。"""
+    role = payload.get("role", "chairman")
+    content = str(payload.get("content", "")).strip()
+    if not content:
+        return {"ok": True}
+    _write_log(role, content, 0, 0)
+    return {"ok": True}
+
 @app.post("/api/logs/entries/update")
 async def update_log_entries(payload: dict):
     """保存编辑后的日志条目（删除/新增后写回文件）。"""
@@ -575,6 +591,38 @@ async def set_title(filename: str = "", title: str = ""):
     _save_titles(titles)
     return {"ok": True}
 
+@app.post("/api/session/restore")
+async def restore_session(filename: str = ""):
+    """恢复指定日志文件为当前会话：NPC 获得最近 5 条对话记忆。"""
+    path = LOG_DIR / filename
+    if not path.exists() or "session_" not in filename or ".." in filename:
+        raise HTTPException(404, "文件不存在")
+    entries = []
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    entries.append(json.loads(line))
+    except Exception:
+        raise HTTPException(400, "日志解析失败")
+    global round_count, total_tokens, session_memories, session_log, session_log_file, last_activity
+    round_count = sum(1 for e in entries if e.get("role") == "user")
+    total_tokens = sum(e.get("tokens_in", 0) for e in entries)
+    # 构建 dict 格式记忆（与实时对话一致）：{question, summary}，取最近 5 轮
+    memories = []
+    for e in entries[-20:]:
+        if e.get("role") == "user":
+            memories.append({"question": e.get("content", "")[:60], "summary": ""})
+        elif e.get("role") == "chairman" and memories:
+            memories[-1]["summary"] = e.get("content", "")[:80]
+    session_memories = [m for m in memories if m.get("summary")][-5:]
+    session_log = entries
+    session_log_file = path
+    last_activity = time.time()
+    print(f"Session restored by request: {round_count} rounds, {len(session_memories)} memories from {filename}")
+    return {"ok": True, "rounds": round_count, "memories": len(session_memories), "file": filename}
+
 @app.post("/api/session/summarize")
 async def summarize_log(filename: str = ""):
     """一键总结指定日志文件的对话内容。"""
@@ -592,14 +640,127 @@ async def summarize_log(filename: str = ""):
 
 @app.post("/api/hotspot/preview")
 async def hotspot_preview(title: str = ""):
-    """生成热点事件的详细概述（至少200字）。"""
+    """生成热点事件的概述（口语化、简短、纯事件描述）。"""
     if not llm or not title: return {"brief": title}
     resp = llm.chat.completions.create(
         model=LLM_MODEL,
-        messages=[{"role": "user", "content": f"请用200-300字的篇幅，详细概述以下热点新闻事件：{title}\n\n要求：包含事件背景、核心内容、社会反响或影响，做到有信息量、有分析。不要只说一两句。"}],
-        max_tokens=600, temperature=0.7
+        messages=[{"role": "user", "content": f"用2-3句话口语化地讲清楚这个热点事件：{title}\n\n要求：像朋友聊天那样描述事件本身（发生了什么、大家什么反应），不要用「你刷到没」「你知道吗」「听说」这类引语开头，直接说事；别用书面语，别列条目，不超过100字。"}],
+        max_tokens=180, temperature=0.8
     )
     return {"title": title, "brief": resp.choices[0].message.content.strip()}
+
+@app.post("/api/hotspot/fetch")
+async def hotspot_fetch(payload: dict):
+    """抓取热点原文 URL 并提取正文纯文字（供弹窗内展示，不跳转）。"""
+    url = str(payload.get("url", "")).strip()
+    if not url.startswith("http://") and not url.startswith("https://"):
+        return {"text": "", "error": "无效链接"}
+    import urllib.request, re
+
+    def _fetch(u):
+        req = urllib.request.Request(u, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.9",
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.read().decode("utf-8", "replace")
+
+    # 从热点 url 中提取搜索词（百度 url 形如 ...?word=关键词&sa=...）
+    m = re.search(r"[?&]word=([^&]+)", url)
+    query = urllib.parse.unquote(m.group(1)) if m else url
+    if query.startswith("http"):
+        query = ""
+    results = []
+
+    # 源1：必应中国版（稳定，不触发安全验证）
+    try:
+        html = _fetch("https://cn.bing.com/search?q=" + urllib.parse.quote(query[:40]))
+        text = _extract_bing(html)
+        if text:
+            results.append(text)
+    except Exception as e:
+        print(f"[hotspot/fetch] bing failed: {e}")
+
+    # 源2：百度（降级备选）
+    if not results:
+        try:
+            html = _fetch(url)
+            text = _extract_baidu(html)
+            if text:
+                results.append(text)
+        except Exception as e:
+            print(f"[hotspot/fetch] baidu failed: {e}")
+
+    if not results:
+        return {"text": "", "error": "未能获取到正文（可能是反爬或页面无文字）"}
+    text = results[0]
+    if len(text) > 3000:
+        text = text[:3000] + "…"
+    return {"text": text, "error": ""}
+
+
+def _extract_bing(html: str) -> str:
+    """提取必应搜索结果页的正文：取前 2 条结果摘要拼接。"""
+    import re
+    text = re.sub(r"<(script|style|noscript)[^>]*>.*?</\1>", " ", html, flags=re.S | re.I)
+    # 先分行（每个标签后换行），再逐行压空白——顺序不能反
+    text = re.sub(r"<[^>]+>", "\n", text)
+    lines = [re.sub(r"\s+", " ", l).strip() for l in text.split("\n")]
+    lines = [l for l in lines if len(l) > 40]
+    out = []
+    for l in lines:
+        # 跳过导航/标题行
+        if re.match(r"^(搜索|自适应|跳至|辅助|国内版|国际版|网页|图片|视频|学术|词典|地图|航班|约 \d|在新选项卡|时间不限|相关搜索|大家还在搜)", l):
+            continue
+        # 跳过域名来源行（sohu.com / cctv.com 等，后面紧跟正文）
+        if re.match(r"^[a-z0-9\-\.]+\.[a-z]{2,5}\b", l) and len(out) == 0:
+            continue
+        # 跳过"标题 + 日期"来源行（含 › 面包屑）
+        if " › " in l and len(out) == 0:
+            continue
+        if "页版权|Microsoft|隐私|必应" in l and len(out) > 2:
+            break
+        out.append(l)
+        if len(out) >= 4:
+            break
+    joined = " ".join(out).strip()
+    # 解码 HTML 实体 &ensp;/&#0183; 等
+    try:
+        import html as _html
+        joined = _html.unescape(joined)
+    except Exception:
+        pass
+    # 清理行首时间戳（如"2026年1月1日&ensp;"、"10 小时之前&ensp;"）
+    joined = re.sub(r"(^|\s)(\d{4}年\d+月\d+日|\d+ 天前|\d+ 小时之前|\d+ 分钟前)\s*", r"\1", joined)
+    joined = re.sub(r"\s+", " ", joined).strip()
+    return joined
+
+
+def _extract_baidu(html: str) -> str:
+    """提取百度搜索页正文（原逻辑保留）。"""
+    import re
+    html = re.sub(r"<(script|style|noscript)[^>]*>.*?</\1>", " ", html, flags=re.S | re.I)
+    html = re.sub(r"<br\s*/?>|</p>|</div>|</h\d>|</li>", "\n", html, flags=re.I)
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = re.sub(r"\s+", " ", text).strip()
+    for noise in ["百度一下 点击即刻体验AI搜索", "百度一下 点击查看更全面", "立即体验AI搜索"]:
+        if noise in text:
+            text = text[text.index(noise) + len(noise):].strip()
+            break
+    for kw in ["综合 笔记 视频 图片 资源筛选 资讯 问答 文档", "上升热点 昨天 人民日报",
+               "商品 采购 小说 音乐 排序方式", "发布时间 24小时 1周内 1月内 1年内 重置"]:
+        text = text.replace(kw, "")
+    for cut_kw in ["相关搜索", "大家还在搜"]:
+        cut = text.find(cut_kw)
+        if cut > 200:
+            text = text[:cut]
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"^[！!—\-·、，,。\s]+", "", text)
+    nav = re.match(r"^(综合 笔记 视频 图片[^\u4e00-\u9fa5]*|热搜榜[^\u4e00-\u9fa5]*第\d+名\s*)", text)
+    if nav:
+        text = text[nav.end():]
+    return text.strip()
 
 @app.get("/api/catalog")
 async def catalog():
@@ -637,6 +798,45 @@ def _maybe_quiz() -> dict | None:
     quiz_asked_ids.add(q["id"])
     quiz_count += 1
     return {"q": q["q"], "opts": q["opts"], "id": q["id"]}
+
+@app.post("/api/quiz/question")
+async def quiz_question():
+    """主动出一道题（仅用户触发，绝不自动）。"""
+    global pending_quiz_id, quiz_asked_ids, quiz_count
+    q = pick_question(session_scene, quiz_asked_ids)
+    if not q:
+        quiz_asked_ids.clear()
+        q = pick_question(session_scene, quiz_asked_ids)
+        if not q:
+            return {"question": None}
+    pending_quiz_id = q["id"]
+    quiz_asked_ids.add(q["id"])
+    quiz_count += 1
+    return {"question": {"id": q["id"], "q": q["q"], "opts": q["opts"], "category": q.get("category", "")}}
+
+@app.post("/api/quiz/answer")
+async def quiz_answer(payload: dict):
+    """判题 + 返回题目介绍（弹窗内展示，用户确认后关闭）。"""
+    global pending_quiz_id
+    if payload.get("skip"):
+        pending_quiz_id = None
+        return {"skipped": True}
+    try:
+        qid = int(payload.get("id", -1))
+        ans = int(payload.get("ans", -1))
+    except (TypeError, ValueError):
+        qid, ans = -1, -1
+    result = check_answer(qid, ans)
+    q = get_question(qid)
+    pending_quiz_id = None  # 弹窗内答题完成，清除待答状态
+    return {
+        "correct": result["correct"],
+        "msg": result["msg"],
+        "correct_answer": result.get("correct_answer"),
+        "correct_text": q["opts"][result["correct_answer"]] if q else "",
+        "intro": (q.get("hint", "") if q else ""),
+        "category": (q.get("category", "") if q else ""),
+    }
 
 @app.get("/api/read")
 async def read_article(source: str = "", title: str = ""):
@@ -723,8 +923,19 @@ async def chat(req: ChatReq):
         messages=[{"role": "user", "content": think_prompt}],
         temperature=0.3, max_tokens=300
     )
-    thinking = think_resp.choices[0].message.content
+    thinking = (think_resp.choices[0].message.content or "").strip()
     t1 = think_resp.usage.total_tokens if think_resp.usage else 0
+    # thinking 为空 → 重试一次
+    if not thinking:
+        think_resp = llm.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": think_prompt}],
+            temperature=0.5, max_tokens=300
+        )
+        thinking = (think_resp.choices[0].message.content or "").strip()
+        t1 += think_resp.usage.total_tokens if think_resp.usage else 0
+    if not thinking:
+        thinking = "对方在问：{0}。结合毛选方法论简要分析主要矛盾与可引用的原文，给出引导方向。".format(req.message[:50])
 
     # 阶段 2：表达（注入场景上下文）
     scene = get_scene(session_scene)
@@ -741,8 +952,20 @@ async def chat(req: ChatReq):
                   {"role": "user", "content": speak_prompt}],
         temperature=0.9, max_tokens=600
     )
-    answer = speak_resp.choices[0].message.content
+    answer = (speak_resp.choices[0].message.content or "").strip()
     t2 = speak_resp.usage.total_tokens if speak_resp.usage else 0
+    # answer 为空 → 重试一次
+    if not answer:
+        speak_resp = llm.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "system", "content": "你是毛泽东本人，在和别人聊天。说话要有你的风格。"},
+                      {"role": "user", "content": speak_prompt}],
+            temperature=1.0, max_tokens=600
+        )
+        answer = (speak_resp.choices[0].message.content or "").strip()
+        t2 += speak_resp.usage.total_tokens if speak_resp.usage else 0
+    if not answer:
+        answer = "[主席笑了笑] 这个问题，我得好好琢磨琢磨。你先把你的想法说来听听，咱们一起分析分析。"
     tokens_used = t1 + t2
     total_tokens += tokens_used
 
@@ -769,5 +992,5 @@ async def chat(req: ChatReq):
         cumulative_tokens=total_tokens,
         fatigue=fatigue,
         scene_switch=scene_switch,
-        quiz=_maybe_quiz(),
+        quiz=None,  # 考考你不再自动触发，仅由 /api/quiz/question 主动出题
     )

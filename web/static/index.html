@@ -48,7 +48,6 @@
             <div class="chat-actions" id="chatActions">
                 <button onclick="saveSession()" id="btnSave"></button>
                 <button onclick="findTopic()" id="btnTopic"></button>
-                <button onclick="askQuiz()" id="btnQuiz"></button>
                 <button onclick="askSaveLog()" id="btnExit"></button>
             </div>
             <div class="chat-input">
@@ -90,9 +89,9 @@
             <div class="hot-modal-title" id="hotModalTitle"></div>
             <div class="hot-modal-brief" id="hotModalBrief">加载中...</div>
             <div class="hot-modal-btns">
+                <button onclick="openHotLink()">🔗 看原文</button>
                 <button onclick="chatAboutHot()">💬 和主席聊聊这个</button>
                 <button onclick="closeHotModal()">👀 看看别的</button>
-                <button onclick="closeHotModal()">🏠 回到首页</button>
             </div>
         </div>
     </div>
@@ -120,6 +119,7 @@
                 <div class="scene-pick" onclick="pickScene('xiaolu','🌳 小路上')">🌳 小路上</div>
                 <div class="scene-pick" onclick="pickScene('shuxia','🌿 树下')">🌿 树下</div>
                 <div class="scene-pick" onclick="pickSceneRandom()">🎲 随缘</div>
+                <div class="scene-pick scene-pick-plain" onclick="pickPlainMode()">🙂 普通模式（不选场景）</div>
             </div>
         </div>
     </div>
@@ -139,6 +139,28 @@
         <div class="modal-content">
             <h3>📖 开始对话</h3>
             <div id="entryOptions"></div>
+        </div>
+    </div>
+    <!-- 恢复对话选择弹窗（继续上次聊天/从日志恢复后弹出） -->
+    <div class="modal-overlay" id="resumeModal" style="display:none">
+        <div class="modal-content">
+            <h3>📜 恢复对话</h3>
+            <p style="font-size:14px;color:var(--text-light);margin-bottom:14px">之前的对话已恢复，接下来怎么聊？</p>
+            <div class="scene-pick-list">
+                <div class="scene-pick" onclick="resumeSummarizeNpc()">💡 一键总结，由主席发起话题</div>
+                <div class="scene-pick" onclick="resumeSummarizeMe()">💬 一键总结，由我发起</div>
+                <div class="scene-pick" onclick="resumeDirectChat()">✍️ 直接聊</div>
+            </div>
+        </div>
+    </div>
+    <!-- 找话题面板（今日热议 + 考考你，考考你金色高亮） -->
+    <div class="modal-overlay" id="topicModal" style="display:none">
+        <div class="modal-content">
+            <h3>💡 找话题</h3>
+            <div class="scene-pick-list">
+                <div class="scene-pick" onclick="pickHotTopics()">🔥 今日热议</div>
+                <div class="scene-pick scene-pick-quiz" onclick="pickQuiz()">📝 考考你</div>
+            </div>
         </div>
     </div>
     <!-- 退出确认弹窗 -->

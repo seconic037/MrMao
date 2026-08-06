@@ -112,26 +112,47 @@ async function playTransition(transition,targetScene){
     applySceneBg(targetScene);
 }
 async function askQuiz(){
-    if(!sceneMode||loading)return;
-    document.getElementById('msg').value='主席，您考考我吧';
-    send();
+    // 主动出题（仅用户触发）：调 /api/quiz/question 弹窗展示
+    if(loading)return;
+    try{
+        const r=await fetch('/api/quiz/question',{method:'POST'});
+        const d=await r.json();
+        if(d.question)showQuiz(d.question);
+    }catch(e){}
 }
 function showQuiz(quiz){
     const modal=document.createElement('div');
     modal.className='quiz-modal';
     modal.innerHTML=`<div class="quiz-modal-content">
-        <div class="quiz-modal-title">📝 主席考考你</div>
+        <div class="quiz-modal-title">📝 主席考考你${quiz.category?` <small style="color:var(--text-light)">· ${quiz.category}</small>`:''}</div>
         <div class="quiz-modal-q">${quiz.q}</div>
         <div class="quiz-options">${quiz.opts.map((o,i)=>`<span class="quiz-opt" onclick="answerQuiz(${quiz.id},${i},this)">${o}</span>`).join('')}</div>
-        <div class="quiz-close" onclick="this.parentElement.parentElement.remove()">✕ 跳过</div>
+        <div class="quiz-close" onclick="skipQuiz()">✕ 跳过</div>
     </div>`;
     document.body.appendChild(modal);
 }
-function answerQuiz(id,ans,el){
+async function answerQuiz(id,ans,el){
     const modal=el.closest('.quiz-modal');
-    if(modal)modal.remove();
-    document.getElementById('msg').value=String(ans);
-    send();
+    // 禁用选项防重复点击
+    modal.querySelectorAll('.quiz-opt').forEach(o=>o.style.pointerEvents='none');
+    try{
+        const r=await fetch('/api/quiz/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,ans})});
+        const d=await r.json();
+        const mark=d.correct?'✅':'❌';
+        modal.querySelector('.quiz-modal-content').innerHTML=`
+            <div class="quiz-modal-title">📝 ${mark} ${d.correct?'答对了':'答错了'}</div>
+            <div class="quiz-modal-q" style="text-align:left">${d.msg}</div>
+            <div class="quiz-intro">📖 题目介绍：${d.intro}</div>
+            <div class="quiz-confirm" onclick="closeQuizModal()">✅ 确认关闭</div>`;
+    }catch(e){modal.remove()}
+}
+function skipQuiz(){
+    fetch('/api/quiz/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({skip:true})}).catch(()=>{});
+    closeQuizModal();
+}
+function closeQuizModal(){
+    const m=document.querySelector('.quiz-modal');
+    if(m)m.remove();
 }
 function updateQuizResult(result){
     // 在最后一条消息气泡中标记正确/错误
@@ -152,7 +173,7 @@ async function showEntryPanel(){
     try{const r=await fetch('/api/session/status');const s=await r.json();const r2=await fetch('/api/logs');const logs=await r2.json();
         const el=document.getElementById('entryOptions');
         let html='';
-        if(s.active)html+=`<div class="entry-opt" onclick="closeEntryModal();enterChat()">💬 继续上次聊天<br><small>${s.rounds}轮对话，${(s.tokens/1000).toFixed(0)}K tokens</small></div>`;
+        if(s.active)html+=`<div class="entry-opt" onclick="closeEntryModal();resumeActiveChat()">💬 继续上次聊天<br><small>${s.rounds}轮对话，${(s.tokens/1000).toFixed(0)}K tokens</small></div>`;
         if(!s.active&&logs.sessions&&logs.sessions.length>0){
             html+='<div class="modal-btns" style="margin-top:8px"><select id="logSelect" style="padding:8px;border-radius:8px;border:1px solid var(--border);font-size:13px">';
             logs.sessions.forEach(l=>{html+=`<option value="${l.name}">${l.title||l.name} · ${l.rounds||'?'}条</option>`});
@@ -165,11 +186,15 @@ async function showEntryPanel(){
     }catch(e){enterChat();}
 }
 function closeEntryModal(){document.getElementById('entryModal').style.display='none'}
-function startNewSession(){
+async function startNewSession(){
     closeEntryModal();
-    fetch('/api/session/discard',{method:'POST'});
+    try{await fetch('/api/session/discard',{method:'POST'})}catch(e){}
     scenePickDone=false; // 全新会话需重新选场景
-    enterChat();
+    // 清空前端聊天区与挂起状态，避免旧对话残留
+    document.getElementById('chat').innerHTML='';
+    window._resumeAfterEnter=false;
+    _pendingSend=null;
+    await enterChat();
 }
 // ── 退出弹窗 ────────────────────────────────
 async function askSaveLog(){
@@ -196,16 +221,11 @@ async function exitAndDiscard(){
 async function enterChat(){
     switchTab('chat');
     resetIdleTimer();
-    // 问题 3：普通模式 + 聊天区为空 + 未选过场景 → 弹 4 场景+随机选择，选完再进聊天
-    if(!sceneMode&&!scenePickDone&&document.getElementById('chat').children.length===0){
-        try{
-            const s=await fetch('/api/session/status');const sd=await s.json();
-            if(!sd.active){
-                scenePickPending=true;
-                document.getElementById('sceneModal').style.display='flex';
-                return true; // 已弹场景选择：调用方应挂起待发消息（ask/chatAboutHot）
-            }
-        }catch(e){}
+    // 场景模式（用户主动打开）：无论首进还是恢复（聊天区是否为空），本次未选过场景就弹场景选择
+    if(sceneMode&&!scenePickDone){
+        scenePickPending=true;
+        document.getElementById('sceneModal').style.display='flex';
+        return true; // 已弹场景选择：调用方应挂起待发消息（ask/chatAboutHot）
     }
     scenePickDone=true;
     // 加载当前场景
@@ -225,11 +245,74 @@ async function enterChat(){
                     }
                 }catch(e){}
             }
+            // 继续上次聊天：恢复后弹三选项（无论聊天区是否为空；场景选择挂起时延后到选完）
+            if(window._resumeAfterEnter){
+                window._resumeAfterEnter=false;
+                setTimeout(()=>showResumeOptions(''),300);
+            }
         }else{
             try{const g=await fetch('/api/greeting');const dd=await g.json();if(dd.greeting)addMsg('assistant',dd.greeting)}catch(e){}
         }
     }catch(e){}
     return false;
+}
+async function resumeActiveChat(){
+    // 继续上次聊天：恢复会话（后端加载记忆）→ 弹三选项
+    try{
+        const r=await fetch('/api/session/status');const d=await r.json();
+        if(d.file)await fetch('/api/session/restore?filename='+encodeURIComponent(d.file),{method:'POST'});
+    }catch(e){}
+    window._resumeAfterEnter=true;
+    enterChat();
+}
+// ── 恢复对话三选项（继续上次聊天 / 从日志恢复 后弹窗）────────────────
+let _resumeFile='';
+function showResumeOptions(fname){
+    _resumeFile=fname||'';
+    document.getElementById('resumeModal').style.display='flex';
+}
+function closeResumeModal(){document.getElementById('resumeModal').style.display='none'}
+async function _summarizeResumed(){
+    // 总结之前填入和恢复的内容；无 filename 则用当前活跃会话
+    let f=_resumeFile;
+    if(!f){
+        try{const r=await fetch('/api/session/status');const d=await r.json();f=d.file||''}catch(e){}
+    }
+    if(!f)return '';
+    try{
+        const r=await fetch('/api/session/summarize?filename='+encodeURIComponent(f),{method:'POST'});
+        const d=await r.json();
+        return d.summary||'';
+    }catch(e){return ''}
+}
+async function resumeSummarizeNpc(){
+    // 一键总结，由 NPC 发起：总结 + 主动发起话题
+    closeResumeModal();
+    const s=await _summarizeResumed();
+    if(s){
+        const text='[主席把烟灰磕进缸里，缓缓开口] 方才聊的那些，我替你拢一拢：\n'+s+'\n\n你看，咱们接着往哪儿聊？';
+        typewrite(text,null);
+        logAppend(text);
+    }
+}
+async function resumeSummarizeMe(){
+    // 一键总结，由我发起：只展示总结，等待用户输入
+    closeResumeModal();
+    const s=await _summarizeResumed();
+    if(s){
+        const text='[主席点点头] 先前聊的这些，我给你归拢一下：\n'+s;
+        typewrite(text,null);
+        logAppend(text);
+    }
+}
+// 前端注入的 NPC 消息写入日志，保证界面与日志一致
+function logAppend(text){
+    fetch('/api/logs/append',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'chairman',content:text})}).catch(()=>{});
+}
+function resumeDirectChat(){
+    // 直接聊：不总结，等用户输入（若有挂起话题则补发）
+    closeResumeModal();
+    flushPendingSend();
 }
 async function send(){
     const m=document.getElementById('msg').value.trim();
@@ -249,10 +332,6 @@ async function send(){
         const d=await r.json();
         clearInterval(dotTimer);loadingEl.remove();
         typewrite(d.answer||'',d);
-        // 出题
-        if(d.quiz){
-            setTimeout(()=>showQuiz(d.quiz),800);
-        }
         // 答题结果
         if(d.quiz_result){
             updateQuizResult(d.quiz_result);
@@ -529,6 +608,8 @@ async function resumeFromEntryLog(){
 }
 async function resumeFromLog(fname){
     try{
+        // 后端加载该日志为当前会话记忆（NPC 有前5条记忆）
+        try{await fetch('/api/session/restore?filename='+encodeURIComponent(fname),{method:'POST'})}catch(e){}
         console.log('resumeFromLog called with:', fname);
         // 先切到聊天
         switchTab('chat');
@@ -553,15 +634,8 @@ async function resumeFromLog(fname){
             last5.forEach(e=>addMsg(e.role==='chairman'?'assistant':'user',escHtml(e.content).replace(/\n/g,'<br>')));
             console.log('added', last5.length, 'history messages');
         }
-        // 主席承接
-        try{
-            const r=await fetch('/api/session/summarize?filename='+encodeURIComponent(fname),{method:'POST'});
-            const d=await r.json();
-            // 截断中文时避免切断字符（substring 可能在 UTF-16 代理对/汉字边界截出残字）
-            let head=d.summary||'';
-            if(head.length>50)head=head.substring(0,50).replace(/[，。、；：！？…\s]+$/,'')+'…';
-            addMsg('assistant',`[老人家抽了口烟，像是想起了什么] 上回咱们说到${head}。后来你咋想的？`);
-        }catch(e){addMsg('assistant','[老人家抽了口烟] 上次的事，接着说。'); console.log('summary failed:', e.message)}
+        // 恢复对话：弹三选项（总结NPC发起 / 总结我发起 / 直接聊）
+        setTimeout(()=>showResumeOptions(fname),300);
         hasNewMessages=true;
     }catch(e){
         console.error('resumeFromLog error:', e.message, e.stack);
@@ -607,8 +681,17 @@ async function saveSession(){
     }catch(e){alert('保存失败')}
 }
 function findTopic(){
+    // 找话题面板：今日热议 / 考考你（金色高亮）
+    document.getElementById('topicModal').style.display='flex';
+}
+function pickHotTopics(){
+    document.getElementById('topicModal').style.display='none';
     switchTab('home');
     document.getElementById('hotspotPanel').scrollIntoView({behavior:'smooth'});
+}
+function pickQuiz(){
+    document.getElementById('topicModal').style.display='none';
+    askQuiz();
 }
 // ── 场景模式 ──────────────────────────
 function toggleSceneMode(){
@@ -655,7 +738,7 @@ function initIcons(){
     set('homeIcon',I.home);set('logIcon',I.log);set('sceneIcon',I.scene);set('readIcon',I.read);
     // 聊天操作栏
     set('btnSave',I.save+' 保存');set('btnTopic',I.topic+' 找话题');
-    set('btnQuiz',I.quiz+' 考考');set('btnExit',I.exit+' 退出');
+    set('btnExit',I.exit+' 退出');
     // 场景切换
     set('sceneToggle',I.scene);
     // 热搜刷新
@@ -675,13 +758,42 @@ async function pickScene(id,label){
     await enterChat();
     showSceneTopic();
     showFatigueHint();
-    // 问题 3：首页话题/热点等场景选完后发送
-    if(_pendingSend){const t=_pendingSend;_pendingSend=null;document.getElementById('msg').value=t;send();}
+    // 问题 3：首页话题/热点等场景选完后发送（若恢复弹窗弹出则等用户选完再发）
+    if(_pendingSend){
+        setTimeout(()=>{
+            const rm=document.getElementById('resumeModal');
+            if(rm&&rm.style.display==='flex')return; // 恢复弹窗已弹，交给选项回调补发
+            flushPendingSend();
+        },450);
+    }
 }
 function pickSceneRandom(){
     const scenes=[['shuwu','📚 菊香书屋'],['keting','🛋️ 丰泽园客厅'],['xiaolu','🌳 小路上'],['shuxia','🌿 树下']];
     const [id,label]=scenes[Math.floor(Math.random()*scenes.length)];
     pickScene(id,label);
+}
+// 场景选择弹窗「普通模式」：自动关闭场景模式，转入普通模式流程
+function pickPlainMode(){
+    document.getElementById('sceneModal').style.display='none';
+    sceneMode=false;
+    scenePickDone=true;   // 本次不再弹场景选择
+    scenePickPending=false;
+    try{localStorage.setItem('mrmao_scene','off')}catch(e){}
+    updateSceneUI();
+    if(_pendingSend){
+        // 从话题/热点进入时挂起的消息：直接进聊天补发
+        enterChat().then(()=>flushPendingSend());
+    }else{
+        // 首页大按钮路径 → 普通模式入口面板（分支 1b）
+        showEntryPanel();
+    }
+}
+// 补发被挂起的消息（场景选择后 / 恢复弹窗选择后）
+function flushPendingSend(){
+    if(!_pendingSend)return;
+    const t=_pendingSend;_pendingSend=null;
+    document.getElementById('msg').value=t;
+    setTimeout(()=>send(),200);
 }
 
 // ── 主动切换面板（问题 1）──────────────────
@@ -716,8 +828,10 @@ async function showSceneTopic(){
     try{
         const r=await fetch('/api/scene/topic',{method:'POST'});
         const d=await r.json();
-        if(d.topic)typewrite(d.topic,null);
-        if(d.quiz)setTimeout(()=>showQuiz(d.quiz),800);
+        if(d.topic){
+            typewrite(d.topic,null);
+            logAppend(d.topic);
+        }
     }catch(e){console.error('Scene topic failed:',e)}
 }
 
@@ -762,33 +876,62 @@ async function readArticle(source,title){
 
 // ── 首页 ────────────────────────────────────
 async function loadTopics(){try{const r=await fetch('/api/catalog');const d=await r.json();const el=document.getElementById('topicList');el.innerHTML=d.topics.map(t=>`<span class="topic-item" data-q="${t.replace(/"/g,'&quot;')}">${t}</span>`).join('');el.querySelectorAll('.topic-item').forEach(s=>s.onclick=()=>ask(s.dataset.q))}catch(e){}}
-async function loadHotspots(){try{const r=await fetch('/api/hotspots');const d=await r.json();const el=document.getElementById('hotspotList');el.innerHTML=d.items.map(h=>`<div class="hotspot-item" onclick="showHotModal('${h.title.replace(/'/g,"\\'")}')"><span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span></div>`).join('');document.getElementById('hotspotSource').textContent=d.source||'百度热搜'}catch(e){}}
+async function loadHotspots(){try{const r=await fetch('/api/hotspots');const d=await r.json();const el=document.getElementById('hotspotList');el.innerHTML=d.items.map(h=>`<div class="hotspot-item" onclick="showHotModal('${h.title.replace(/'/g,"\\'")}','${encodeURIComponent(h.url||'')}')"><span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span></div>`).join('');document.getElementById('hotspotSource').textContent=d.source||'百度热搜'}catch(e){}}
 async function refreshHotspots(){
     const el=document.getElementById('hotspotList');el.innerHTML='<div class="log-loading">刷新中...</div>';
     try{const r=await fetch('/api/hotspots/refresh',{method:'POST'});const d=await r.json();
-        el.innerHTML=d.items.map(h=>`<div class="hotspot-item" onclick="showHotModal('${h.title.replace(/'/g,"\\'")}')"><span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span></div>`).join('');
+        el.innerHTML=d.items.map(h=>`<div class="hotspot-item" onclick="showHotModal('${h.title.replace(/'/g,"\\'")}','${encodeURIComponent(h.url||'')}')"><span>${h.title}${h.tag?`<span class="hot-tag">${h.tag}</span>`:''}</span></div>`).join('');
         document.getElementById('hotspotSource').textContent=d.source||'百度热搜'}catch(e){el.innerHTML='<div class="log-loading">刷新失败</div>'}
 }
 
 // ── 热点弹窗 ────────────────────────────────
-let currentHotTitle='',currentHotBrief='';
-async function showHotModal(title){
-    currentHotTitle=title;currentHotBrief='';
+let currentHotTitle='',currentHotBrief='',currentHotUrl='';
+async function showHotModal(title,url){
+    currentHotTitle=title;currentHotBrief='';currentHotUrl=url?decodeURIComponent(url):'';
     document.getElementById('hotModalTitle').textContent=title;
     document.getElementById('hotModalBrief').textContent='加载中...';
     document.getElementById('hotModal').style.display='flex';
     try{const r=await fetch(`/api/hotspot/preview?title=${encodeURIComponent(title)}`,{method:'POST'});const d=await r.json();currentHotBrief=d.brief||title;document.getElementById('hotModalBrief').textContent=currentHotBrief}catch(e){document.getElementById('hotModalBrief').textContent=title}
 }
+// 查看热点原文：弹窗内直接展示正文纯文字（不跳转新网页）
+async function openHotLink(){
+    const url=currentHotUrl||`https://m.baidu.com/s?word=${encodeURIComponent(currentHotTitle)}&sa=fyb_news`;
+    const brief=document.getElementById('hotModalBrief');
+    brief.textContent='正在抓取原文...';
+    try{
+        const r=await fetch('/api/hotspot/fetch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+        const d=await r.json();
+        if(d.error){brief.textContent='原文抓取失败：'+d.error}
+        else if(d.text){
+            brief.innerHTML=`<div class="hot-raw-head">📄 原文内容 <a onclick="closeHotModal();showHotModal('${currentHotTitle.replace(/'/g,"\\'")}','${encodeURIComponent(currentHotUrl)}')" style="margin-left:8px;color:var(--primary);cursor:pointer">← 返回概述</a></div><div class="hot-raw-text">${d.text.replace(/</g,'&lt;')}</div>`;
+        }
+        else{brief.textContent='该链接无可用正文'}
+    }catch(e){brief.textContent='原文抓取失败：'+e.message}
+}
 function closeHotModal(){document.getElementById('hotModal').style.display='none'}
 function chatAboutHot(){
     document.getElementById('hotModal').style.display='none';
     enterChat().then(popped=>{
-        document.getElementById('msg').value=currentHotTitle+'，您怎么看？';
-        // 把缩略内容作为隐藏上下文注入
-        window._hotContext=currentHotBrief;
+        // 自然口语引子（随机轮换，避免每次都"我听说…"同款句式）
+        const openers=[
+            (t,b)=>`哎，您听说了吗——${t}？${b}`,
+            (t,b)=>`我今儿刷到一个事：${t}。${b}`,
+            (t,b)=>`最近老听人念叨${t}，${b}`,
+            (t,b)=>`您瞧这个，${t}——${b}`,
+            (t,b)=>`有件事想请您给说道说道：${t}。${b}`,
+            (t,b)=>`您看这个${t}，${b}`,
+        ];
+        const closer=Math.random()<0.5?'您怎么看？':'您觉得呢？';
+        const open=openers[Math.floor(Math.random()*openers.length)];
+        const sendText=currentHotBrief
+            ? open(currentHotTitle,currentHotBrief)+closer
+            : currentHotTitle+'，您怎么看？';
+        document.getElementById('msg').value=sendText;
+        // 简述已直接拼入消息正文，无需再隐藏注入
+        window._hotContext='';
         // 问题 3：弹了场景选择则等选完再发送
         if(popped){
-            _pendingSend=currentHotTitle+'，您怎么看？';
+            _pendingSend=sendText;
         }else{
             setTimeout(()=>send(),200);
         }
