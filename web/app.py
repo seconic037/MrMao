@@ -922,6 +922,9 @@ async def chat(req: ChatReq):
     # 检索
     rags = retriever.search(req.message, top_k=5) if retriever else []
 
+    # 意图判断（必须在 think 之前，本轮意图才能注入本轮 think）
+    current_intent = analyze_intent(req.message)
+
     # 阶段 1：思维（注入对话记忆 + 话题线 + 原文缓冲 + 意图）
     think_prompt = engine.build_think_prompt(
         req.message, rags, session_memories[-5:],
@@ -990,8 +993,7 @@ async def chat(req: ChatReq):
         if scene_switch:
             scene_switch["target"] = switch_target
 
-    # 意图判断 + 三层记忆维护
-    current_intent = analyze_intent(req.message)
+    # 三层记忆维护（current_intent 已在 think 前算好，直接复用）
     summary = _generate_summary(req.message, answer)
     summary["emotion"] = current_intent["emotion"]
     session_memories.append(summary)
