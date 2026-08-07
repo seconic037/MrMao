@@ -20,3 +20,12 @@ tools/
 install_service.bat
 diary/
 *.vbs
+
+# 本地运行时产物 / 个人工作流目录（不上传 GitHub）
+server_restart*.log
+data/baidu_hot.json
+核心内容/
+新知识放这里/
+handoff-reasonix/
+maozedong-wenxian-skill/
+backgrounds/

@@ -4,14 +4,14 @@
 #   bash deploy.sh <EC2_IP> [SSH_KEY路径]
 # 示例:
 #   bash deploy.sh 54.xxx.xxx.xxx
-#   bash deploy.sh 54.xxx.xxx.xxx C:/Users/68090/.ssh/chairmanmao-key.pem
+#   bash deploy.sh 54.xxx.xxx.xxx ~/.ssh/chairmanmao-key.pem
 #
 # 流程: 本地打包 → scp 上传 → 远程解压 → 恢复/初始化 .env → python3.11 + venv 依赖
 #       → 写入 systemd 单元 → 启动服务 → /api/status 验证
 set -e
 
 HOST="${1:?用法: bash deploy.sh <EC2_IP> [SSH_KEY路径]}"
-KEY="${2:-C:/Users/68090/.ssh/chairmanmao-key.pem}"
+KEY="${2:-~/.ssh/chairmanmao-key.pem}"
 REMOTE_USER="ec2-user"                    # Amazon Linux 2023 默认用户
 REMOTE_DIR="/home/ec2-user/chairmanmao"
 SERVICE="chairmanmao"
