@@ -29,3 +29,7 @@ data/baidu_hot.json
 handoff-reasonix/
 maozedong-wenxian-skill/
 backgrounds/
+
+# 本地运维/内部协作（脱敏：含本地路径，不上传）
+migrate_mrmao_service.bat
+docs/handoffs/2026-08-10-chairmanmao-data-request.md
