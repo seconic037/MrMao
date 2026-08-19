@@ -1,11 +1,27 @@
 """向量化与ChromaDB入库。离线模式，不访问 HuggingFace。"""
 import os, json, time
+from pathlib import Path
 import chromadb
 from sentence_transformers import SentenceTransformer
 
 
+def _offline_cache_dir() -> str:
+    """解压根内置的离线模型包目录（zip 自带 model_offline/），不存在则返回空。
+
+    该目录本身即 HF hub 缓存结构（含 blobs/ snapshots/ refs/），
+    直接作为 HF_HUB_CACHE 使用即可离线加载，无需再拷贝到用户目录。
+    开发机（无 model_offline/）时返回空，回退到用户默认 HF 缓存。
+    """
+    root = Path(__file__).resolve().parent.parent
+    offline = root / "model_offline"
+    return str(offline) if offline.is_dir() else ""
+
+
 def _load_model(model_name: str):
-    """加载本地嵌入模型（离线）。"""
+    """加载本地嵌入模型（离线）。优先解压根 model_offline/，否则回退用户 HF 缓存。"""
+    cache = _offline_cache_dir()
+    if cache:
+        os.environ.setdefault("HF_HUB_CACHE", cache)
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
     os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
     return SentenceTransformer(model_name, local_files_only=True)
