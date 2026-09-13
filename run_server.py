@@ -7,7 +7,7 @@ load_dotenv()
 import uvicorn
 
 def main():
-    port = int(os.getenv("WEB_PORT", "8000"))
+    port = int(os.getenv("WEB_PORT", "8341"))
     reload = "--reload" in sys.argv
     for a in sys.argv:
         if a.startswith("--port="):

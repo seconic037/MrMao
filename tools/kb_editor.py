@@ -15,7 +15,12 @@ try:
 except Exception:
     pass
 
-ROOT = Path(__file__).resolve().parent.parent
+# 解压根目录：总是 exe 所在目录（PyInstaller onefile 下 sys.executable=exe路径，
+# _MEIPASS=临时解包目录，不能用来定位用户资料/知识库/服务）。
+if getattr(sys, "frozen", False):
+    ROOT = Path(sys.executable).resolve().parent
+else:
+    ROOT = Path(__file__).resolve().parent.parent
 INBOX = ROOT / "新知识放这里"
 MD_DIR = ROOT / "knowledge" / "framework"
 TXT_DIR = ROOT / "data" / "txt" / "知识扩展"
@@ -23,7 +28,24 @@ ARCHIVE = INBOX / "_已处理"
 TRASH_DIR = INBOX / "_已删除"
 NSSM = ROOT / "tools" / "nssm" / "nssm-2.24" / "win64" / "nssm.exe"
 SERVICE_CANDIDATES = ["MrMao", "mrmao", "ChairManMao", "chairmanmao"]
-PORT = 8000
+
+# 服务端口：从 .env 的 WEB_PORT 读取（与 launcher/run_server 一致），默认 8341。
+def _load_web_port() -> int:
+    try:
+        env = ROOT / ".env"
+        if env.exists():
+            for line in env.read_text(encoding="utf-8", errors="ignore").splitlines():
+                line = line.strip()
+                if line.startswith("WEB_PORT="):
+                    v = line.split("=", 1)[1].strip()
+                    if v.isdigit():
+                        return int(v)
+    except Exception:
+        pass
+    return 8341
+
+
+PORT = _load_web_port()
 READONLY_SUFFIX = "_全文.txt"
 READONLY_SIZE = 1024 * 1024
 ILLEGAL_CHARS = set('/\\:*?"<>|')
@@ -340,15 +362,17 @@ def restart_server() -> str:
                            capture_output=True, text=True, timeout=10)
             logs.append(f"🛑 已终止旧进程 PID {pid}")
         CREATE_NO_WINDOW = 0x08000000
-        subprocess.Popen(["python", "run_server.py"], cwd=str(ROOT),
+        venv_py = ROOT / "venv" / "Scripts" / "python.exe"
+        py_cmd = str(venv_py) if venv_py.exists() else "python"
+        subprocess.Popen([py_cmd, "run_server.py"], cwd=str(ROOT),
                          creationflags=CREATE_NO_WINDOW,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        logs.append("🚀 已后台启动 python run_server.py")
+        logs.append(f"🚀 已后台启动 {py_cmd} run_server.py")
     # 等待端口恢复（最多 30s）
     import time
     for _ in range(30):
         if server_running(PORT):
-            logs.append("✅ 服务器已就绪（8000 端口可访问）")
+            logs.append(f"✅ 服务器已就绪（{PORT} 端口可访问）")
             return "\n".join(logs)
         time.sleep(1)
     logs.append("⏳ 等待超时：服务器未在 30s 内就绪，请手动检查 python run_server.py")

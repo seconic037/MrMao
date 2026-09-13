@@ -33,3 +33,6 @@ backgrounds/
 # 本地运维/内部协作（脱敏：含本地路径，不上传）
 migrate_mrmao_service.bat
 docs/handoffs/2026-08-10-chairmanmao-data-request.md
+
+# 打包构建产物（体积大：含模型/向量库副本、exe、zip；不入仓库）
+build/
